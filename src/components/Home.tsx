@@ -2,7 +2,7 @@ import React from 'react';
 import { Edit2, Image as ImageIcon, Minimize2, Trash2, FileText, FileImage, RotateCw, Sparkles } from 'lucide-react';
 
 const tools = [
-  { id: 'editor', icon: Edit2, title: 'PDF Editor', desc: 'Add text, shapes, images. Drag, resize, recolor. Export finished PDF.', badge: 'Most Popular', color: 'from-indigo-500/30 to-purple-400/10 border-indigo-500/20 text-indigo-400' },
+  { id: 'editor', icon: Edit2, title: 'PDF & Image Editor', desc: 'Add text, shapes, images. Drag, resize, recolor. Export finished PDF.', badge: 'Most Popular', color: 'from-indigo-500/30 to-purple-400/10 border-indigo-500/20 text-indigo-400' },
   { id: 'img2pdf', icon: ImageIcon, title: 'Images -> PDF', desc: 'Upload multiple JPG/PNG/WebP and merge into one PDF instantly.', badge: 'Instant', color: 'from-emerald-500/30 to-cyan-400/10 border-emerald-500/20 text-emerald-400' },
   { id: 'compress', icon: Minimize2, title: 'Compress PDF', desc: 'Reduce file size without losing quality. Choose compression level.', badge: 'Save Space', color: 'from-red-500/30 to-amber-400/10 border-red-500/20 text-red-400' },
   { id: 'delete', icon: Trash2, title: 'Delete Pages', desc: 'Select and remove unwanted pages. Preview before deleting.', badge: 'Page Manager', color: 'from-red-500/30 to-amber-400/10 border-red-500/20 text-red-400' },
