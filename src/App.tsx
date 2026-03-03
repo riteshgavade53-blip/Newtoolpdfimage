@@ -12,7 +12,7 @@ import CleanExcel from './components/CleanExcel';
 
 const tabs = [
   { id: 'home', label: 'Home', icon: HomeIcon },
-  { id: 'editor', label: 'Editor', icon: Edit2 },
+  { id: 'editor', label: 'PDF & Image Edit', icon: Edit2 },
   { id: 'img2pdf', label: 'Images->PDF', icon: ImageIcon },
   { id: 'compress', label: 'Compress', icon: Minimize2 },
   { id: 'delete', label: 'Delete Pages', icon: Trash2 },
