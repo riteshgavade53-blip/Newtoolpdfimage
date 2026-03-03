@@ -28,8 +28,11 @@ interface Layer {
 
 interface CustomPage {
   id: string;
-  type: 'pdf' | 'blank';
+  type: 'pdf' | 'blank' | 'image';
   pdfPageNum?: number;
+  imageSrc?: string;
+  imageWidth?: number;
+  imageHeight?: number;
 }
 
 export default function Editor() {
@@ -57,23 +60,41 @@ export default function Editor() {
   const isUndoingRef = useRef(false);
 
   const handleFile = async (newFile: File | null) => {
-    if (!newFile || !newFile.name.endsWith('.pdf')) return;
+    if (!newFile) return;
+    const isPdf = newFile.name.toLowerCase().endsWith('.pdf') || newFile.type === 'application/pdf';
+    const isImage = newFile.type.startsWith('image/');
+    if (!isPdf && !isImage) return;
+
     setFile(newFile);
     setLayers([]);
     setSelectedLayerId(null);
     setEditingTextId(null);
     setPageNum(1);
-    
-    const buf = await newFile.arrayBuffer();
-    const loadedPdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
-    setPdf(loadedPdf);
-    
-    const initialPages: CustomPage[] = Array.from({ length: loadedPdf.numPages }, (_, i) => ({
-      id: `pdf-${i + 1}`,
-      type: 'pdf',
-      pdfPageNum: i + 1
-    }));
-    setCustomPages(initialPages);
+
+    if (isPdf) {
+      const buf = await newFile.arrayBuffer();
+      const loadedPdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+      setPdf(loadedPdf);
+
+      const initialPages: CustomPage[] = Array.from({ length: loadedPdf.numPages }, (_, i) => ({
+        id: `pdf-${i + 1}`,
+        type: 'pdf',
+        pdfPageNum: i + 1
+      }));
+      setCustomPages(initialPages);
+      return;
+    }
+
+    const imageSrc = URL.createObjectURL(newFile);
+    const img = await loadImgEl(imageSrc);
+    setPdf(null);
+    setCustomPages([{
+      id: `image-${Date.now()}`,
+      type: 'image',
+      imageSrc,
+      imageWidth: img.naturalWidth,
+      imageHeight: img.naturalHeight
+    }]);
   };
 
   useEffect(() => {
@@ -194,6 +215,20 @@ export default function Editor() {
       const ctx = cv.getContext('2d')!;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, cv.width, cv.height);
+      return;
+    }
+
+    if (currentPage.type === 'image' && currentPage.imageSrc) {
+      const img = await loadImgEl(currentPage.imageSrc);
+      const naturalW = currentPage.imageWidth || img.naturalWidth;
+      const naturalH = currentPage.imageHeight || img.naturalHeight;
+      const fitRatio = Math.min(1, 1200 / Math.max(naturalW, naturalH));
+      cv.width = Math.max(1, Math.round(naturalW * fitRatio * scale));
+      cv.height = Math.max(1, Math.round(naturalH * fitRatio * scale));
+      const ctx = cv.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(img, 0, 0, cv.width, cv.height);
       return;
     }
     
@@ -329,6 +364,16 @@ export default function Editor() {
           const ctx = cv.getContext('2d')!;
           // @ts-ignore
           await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        } else if (currentPage.type === 'image' && currentPage.imageSrc) {
+          const img = await loadImgEl(currentPage.imageSrc);
+          vpWidth = (currentPage.imageWidth || img.naturalWidth) * 2;
+          vpHeight = (currentPage.imageHeight || img.naturalHeight) * 2;
+          cv.width = vpWidth;
+          cv.height = vpHeight;
+          const ctx = cv.getContext('2d')!;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, vpWidth, vpHeight);
+          ctx.drawImage(img, 0, 0, vpWidth, vpHeight);
         } else {
           cv.width = vpWidth;
           cv.height = vpHeight;
@@ -509,7 +554,7 @@ export default function Editor() {
       {/* Sidebar */}
       <div className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 overflow-y-auto z-20">
         <div className="p-4 border-b border-slate-800 font-bold text-sm flex items-center gap-2">
-          <Edit2 className="w-4 h-4 text-indigo-400" /> PDF Editor
+          <Edit2 className="w-4 h-4 text-indigo-400" /> PDF & Image Editor
         </div>
         
         <div className="p-4 border-b border-slate-800">
@@ -521,10 +566,10 @@ export default function Editor() {
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFile(e.dataTransfer.files[0]); }}
           >
             <FileText className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-            <div className="text-sm font-semibold mb-1 truncate px-2">{file ? file.name : 'Upload PDF'}</div>
+            <div className="text-sm font-semibold mb-1 truncate px-2">{file ? file.name : 'Upload PDF or Image'}</div>
             <div className="text-xs text-slate-500">Click or drag & drop</div>
           </div>
-          <input type="file" ref={fileInputRef} className="hidden" accept=".pdf" onChange={(e) => handleFile(e.target.files?.[0] || null)} />
+          <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={(e) => handleFile(e.target.files?.[0] || null)} />
         </div>
 
         <div className="p-4 border-b border-slate-800 space-y-3">
@@ -596,6 +641,34 @@ export default function Editor() {
                 <div className="text-[10px] text-slate-500">For full cover, keep opacity at 1.0 and use a dark fill.</div>
               </>
             )}
+
+            {selectedLayer.type === 'img' && (
+              <>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs text-slate-400 w-12">Width</span>
+                  <input
+                    type="number"
+                    min="20"
+                    max="2000"
+                    value={Math.round(selectedLayer.w || 150)}
+                    onChange={e => updateLayer(selectedLayer.id, { w: Math.max(20, Number(e.target.value) || 150) })}
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-xs text-slate-400 w-12">Height</span>
+                  <input
+                    type="number"
+                    min="20"
+                    max="2000"
+                    value={Math.round(selectedLayer.h || 150)}
+                    onChange={e => updateLayer(selectedLayer.id, { h: Math.max(20, Number(e.target.value) || 150) })}
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div className="text-[10px] text-slate-500">Click image to select, then drag or resize from handles.</div>
+              </>
+            )}
           </div>
         )}
 
@@ -620,7 +693,7 @@ export default function Editor() {
         {customPages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500">
             <Edit2 className="w-16 h-16 mb-4 opacity-50" />
-            <div className="font-semibold text-lg text-slate-300">Open a PDF or start blank</div>
+            <div className="font-semibold text-lg text-slate-300">Open a PDF, image, or start blank</div>
             <div className="text-sm mt-2">Use the sidebar to upload your file</div>
             <button onClick={() => {
               setCustomPages([{ id: `blank-${Date.now()}`, type: 'blank' }]);
@@ -653,6 +726,7 @@ export default function Editor() {
                   key={layer.id}
                   draggable={editingTextId !== layer.id}
                   onDragStart={(e) => handleDragStart(e, layer.id)}
+                  onMouseDown={(e) => { e.stopPropagation(); setSelectedLayerId(layer.id); }}
                   onClick={(e) => { e.stopPropagation(); setSelectedLayerId(layer.id); }}
                   onDoubleClick={(e) => { e.stopPropagation(); if (layer.type === 'text') setEditingTextId(layer.id); }}
                   className={`absolute ${editingTextId !== layer.id ? 'cursor-move' : 'cursor-text'} ${selectedLayerId === layer.id ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
@@ -695,7 +769,15 @@ export default function Editor() {
     <div className="whitespace-pre-wrap" style={{ lineHeight: '1.2' }}>{layer.content}</div>
   )
 )}
-                  {layer.type === 'img' && <img src={layer.imgSrc} alt="" className="w-full h-full object-contain pointer-events-none" />}
+                  {layer.type === 'img' && (
+                    <img
+                      src={layer.imgSrc}
+                      alt=""
+                      draggable={false}
+                      onMouseDown={(e) => { e.stopPropagation(); setSelectedLayerId(layer.id); }}
+                      className="w-full h-full object-contain"
+                    />
+                  )}
                   
                   {selectedLayerId === layer.id && (
                     <>
