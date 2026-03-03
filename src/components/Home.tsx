@@ -9,7 +9,7 @@ const tools = [
   { id: 'word', icon: FileText, title: 'Word Converter', desc: 'Convert .docx Word files to PDF with exact layout or to Excel.', badge: 'Full Support', color: 'from-amber-500/30 to-pink-400/10 border-amber-500/20 text-amber-400' },
   { id: 'pdf2img', icon: FileImage, title: 'PDF -> Image', desc: 'Convert every PDF page to JPG, PNG or WebP. Download all as ZIP.', badge: 'New', color: 'from-pink-500/30 to-cyan-400/10 border-pink-500/20 text-pink-400' },
   { id: 'rotate', icon: RotateCw, title: 'Rotate Pages', desc: 'Rotate individual or all pages. Preview rotation live. Export fixed PDF.', badge: 'New', color: 'from-amber-500/30 to-emerald-400/10 border-amber-500/20 text-amber-400' },
-  { id: 'cleanexcel', icon: Sparkles, title: 'Clean Excel', desc: 'tool removes only special characters and Chinese words.', badge: 'Data Cleanup', color: 'from-emerald-500/30 to-lime-400/10 border-emerald-500/20 text-emerald-400' },
+  { id: 'cleanexcel', icon: Sparkles, title: 'Clean Excel', desc: 'Tool removes only special characters and Chinese words.', badge: 'Data Cleanup', color: 'from-emerald-500/30 to-lime-400/10 border-emerald-500/20 text-emerald-400' },
 ];
 
 export default function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
