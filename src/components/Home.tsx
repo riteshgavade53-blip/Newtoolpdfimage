@@ -36,10 +36,10 @@ export default function Home({ onNavigate }: { onNavigate: (id: string) => void 
           <div className="text-2xl font-extrabold text-indigo-400">{tools.length}</div>
           <div className="text-xs text-slate-500 mt-1">Tools</div>
         </div>
-        <div className="text-center">
+        {/* <div className="text-center">
           <div className="text-2xl font-extrabold text-indigo-400">0</div>
           <div className="text-xs text-slate-500 mt-1">Server Uploads</div>
-        </div>
+        </div> */}
         <div className="text-center">
           <div className="text-2xl font-extrabold text-indigo-400">infinite</div>
           <div className="text-xs text-slate-500 mt-1">Files Processed</div>
