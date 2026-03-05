@@ -7,12 +7,8 @@ type TableData = string[][];
 const normalizeCell = (value: unknown) => String(value ?? '');
 const removeSpecialChars = (value: string) => {
   return value
-    .normalize('NFKC')
-    .replace(/[\u200B-\u200D\uFEFF]/g, ' ')
-    .replace(/[^\x20-\x7E]/g, ' ')
-    .replace(/[^A-Za-z0-9 ]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+    // Remove special characters except the explicitly allowed punctuation set.
+    .replace(/[^\p{L}\p{N}\s\-_+=,.\/\\:;<>[\]]+/gu, '');
 };
 
 export default function CleanExcel() {
