@@ -8,7 +8,7 @@ const normalizeCell = (value: unknown) => String(value ?? '');
 const removeSpecialChars = (value: string) => {
   return value
     // Remove special characters except the explicitly allowed punctuation set.
-    .replace(/[^\p{L}\p{N}\s\-_+=,.\/\\:;<>[\]]+/gu, '');
+    .replace(/[^\p{L}\p{N}\s\-_+=,.\/\\:;?À Á Â Ã Ä Å Ā Ă Ą Ǎ Ǻà á â ã ä å ā ă ą ǎ ǻÆ Ǽæ ǽÇ Ć Ĉ Ċ Čç ć ĉ ċ čÐ Ď Đð ď đÈ É Ê Ë Ē Ĕ Ė Ę Ěè é ê ë ē ĕ ė ę ěĜ Ğ Ġ Ģĝ ğ ġ ģĤ Ħĥ ħÌ Í Î Ï Ĩ Ī Ĭ Į İ Ǐì í î ï ĩ ī ĭ į ı ǐĴĵĶķĹ Ļ Ľ Ŀ Łĺ ļ ľ ŀ łÑ Ń Ņ Ňñ ń ņ ňÒ Ó Ô Õ Ö Ø Ō Ŏ Ő Ǒ Ǿò ó ô õ ö ø ō ŏ ő ǒ ǿŒœŔ Ŗ Řŕ ŗ řŚ Ŝ Ş Šś ŝ ş šŢ Ť Ŧţ ť ŧÙ Ú Û Ü Ũ Ū Ŭ Ů Ű Ų Ǔù ú û ü ũ ū ŭ ů ű ų ǔŴŵÝ Ŷ Ÿý ŷ ÿŹ Ż Žź ż žÞþ<>[\]]+/gu, '');
 };
 
 export default function CleanExcel() {
