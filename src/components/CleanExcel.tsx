@@ -7,8 +7,9 @@ type TableData = string[][];
 const normalizeCell = (value: unknown) => String(value ?? '');
 const removeSpecialChars = (value: string) => {
   return value
-    // Remove special characters except the explicitly allowed punctuation set.
-    .replace(/[^\p{L}\p{N}\s\-_+=,.\/\\:;<>[\]]+/gu, '');
+    // Remove accented/extended Latin letters and keep only allowed punctuation.
+    .replace(/[\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF\u0100-\u024F]/g, '')
+    .replace(/[^\p{L}\p{N}\s\-_+=,.\/\\:;?<>[\]]+/gu, '');
 };
 
 export default function CleanExcel() {
