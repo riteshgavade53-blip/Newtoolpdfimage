@@ -346,13 +346,14 @@ export default function Editor() {
     setIsProcessing(true);
     
     try {
-      let npdf: jsPDF | null = null;
+        let npdf: jsPDF | null = null;
       
       for (let i = 0; i < customPages.length; i++) {
         const currentPage = customPages[i];
         const cv = document.createElement('canvas');
         let vpWidth = 595 * 2;
         let vpHeight = 842 * 2;
+        let exportScale = 2;
         
         if (currentPage.type === 'pdf' && pdf) {
           const page = await pdf.getPage(currentPage.pdfPageNum!);
@@ -366,8 +367,12 @@ export default function Editor() {
           await page.render({ canvasContext: ctx, viewport: vp }).promise;
         } else if (currentPage.type === 'image' && currentPage.imageSrc) {
           const img = await loadImgEl(currentPage.imageSrc);
-          vpWidth = (currentPage.imageWidth || img.naturalWidth) * 2;
-          vpHeight = (currentPage.imageHeight || img.naturalHeight) * 2;
+          const naturalW = currentPage.imageWidth || img.naturalWidth;
+          const naturalH = currentPage.imageHeight || img.naturalHeight;
+          const fitRatio = Math.min(1, 1200 / Math.max(naturalW, naturalH));
+          exportScale = 2 / fitRatio;
+          vpWidth = naturalW * 2;
+          vpHeight = naturalH * 2;
           cv.width = vpWidth;
           cv.height = vpHeight;
           const ctx = cv.getContext('2d')!;
@@ -387,35 +392,37 @@ export default function Editor() {
         
         for (const layer of pageLayers) {
           if (layer.type === 'text') {
-            const bw = (layer.w || 140) * 2;
-            const bh = (layer.h || 34) * 2;
+            const bw = (layer.w || 140) * exportScale;
+            const bh = (layer.h || 34) * exportScale;
             ctx.fillStyle = '#ffffff';
-            ctx.fillRect(layer.x * 2, layer.y * 2, bw, bh);
-            ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * 2}px ${layer.fontFamily}`;
+            ctx.fillRect(layer.x * exportScale, layer.y * exportScale, bw, bh);
+            ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * exportScale}px ${layer.fontFamily}`;
             ctx.fillStyle = layer.color!;
             ctx.textAlign = layer.textAlign as CanvasTextAlign;
             
             const lines = (layer.content || '').split('\n');
             lines.forEach((line, lineIdx) => {
-              ctx.fillText(line, layer.x * 2, layer.y * 2 + (layer.fontSize! * 2) + (lineIdx * layer.fontSize! * 2.4));
+              ctx.fillText(line, layer.x * exportScale, layer.y * exportScale + (layer.fontSize! * exportScale) + (lineIdx * layer.fontSize! * exportScale * 1.2));
             });
           } else if (layer.type === 'shape') {
             ctx.globalAlpha = layer.opacity!;
             ctx.fillStyle = layer.fill!;
             ctx.strokeStyle = layer.stroke!;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2 * exportScale;
             ctx.beginPath();
             if (layer.shapeType === 'rect') {
-              ctx.rect(layer.x * 2, layer.y * 2, layer.w! * 2, layer.h! * 2);
+              ctx.rect(layer.x * exportScale, layer.y * exportScale, layer.w! * exportScale, layer.h! * exportScale);
               ctx.fill(); ctx.stroke();
             } else if (layer.shapeType === 'circle') {
-              ctx.ellipse(layer.x * 2 + layer.w!, layer.y * 2 + layer.h!, layer.w!, layer.h!, 0, 0, Math.PI * 2);
+              const rx = (layer.w! * exportScale) / 2;
+              const ry = (layer.h! * exportScale) / 2;
+              ctx.ellipse(layer.x * exportScale + rx, layer.y * exportScale + ry, rx, ry, 0, 0, Math.PI * 2);
               ctx.fill(); ctx.stroke();
             }
             ctx.globalAlpha = 1;
           } else if (layer.type === 'img' && layer.imgSrc) {
             const img = await loadImgEl(layer.imgSrc);
-            ctx.drawImage(img, layer.x * 2, layer.y * 2, layer.w! * 2, layer.h! * 2);
+            ctx.drawImage(img, layer.x * exportScale, layer.y * exportScale, layer.w! * exportScale, layer.h! * exportScale);
           }
         }
         
