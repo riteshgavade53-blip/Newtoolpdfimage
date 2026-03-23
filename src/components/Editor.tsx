@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { pdfjsLib, jsPDF, loadImgEl } from '../utils/pdfUtils';
+import { pdfjsLib, jsPDF, loadImgEl, JSZip } from '../utils/pdfUtils';
 import { Edit2, FileText, ArrowDownToLine, Type, Square, Image as ImageIcon, Trash2, ZoomIn, ZoomOut, FilePlus, Copy, ClipboardPaste, RotateCw, RotateCcw } from 'lucide-react';
 
 interface Layer {
@@ -644,6 +644,135 @@ export default function Editor() {
   const exportPdf = () => exportPdfWithOptions(0.95, 2, 'edited-document.pdf');
   const exportCompressedPdf = () => exportPdfWithOptions(0.65, 1.2, 'edited-document-compressed.pdf');
 
+  const exportImagesZip = async () => {
+    if (customPages.length === 0) return;
+    setIsProcessing(true);
+    try {
+      const zip = new JSZip();
+      const baseScale = 2;
+      const jpegQuality = 0.95;
+
+      for (let i = 0; i < customPages.length; i++) {
+        const currentPage = customPages[i];
+        const cv = document.createElement('canvas');
+        let vpWidth = 595 * baseScale;
+        let vpHeight = 842 * baseScale;
+        let exportScale = baseScale;
+        const rotation = currentPage.rotation || 0;
+
+        if (currentPage.type === 'pdf' && currentPage.pdfDoc) {
+          const page = await currentPage.pdfDoc.getPage(currentPage.pdfPageNum!);
+          const vp = page.getViewport({ scale: baseScale, rotation });
+          vpWidth = vp.width;
+          vpHeight = vp.height;
+          cv.width = vpWidth;
+          cv.height = vpHeight;
+          const ctx = cv.getContext('2d')!;
+          // @ts-ignore
+          await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        } else if (currentPage.type === 'image' && currentPage.imageSrc) {
+          const img = await loadImgEl(currentPage.imageSrc);
+          const naturalW = currentPage.imageWidth || img.naturalWidth;
+          const naturalH = currentPage.imageHeight || img.naturalHeight;
+          const fitRatio = Math.min(1, 1200 / Math.max(naturalW, naturalH));
+          exportScale = baseScale / fitRatio;
+          const baseW = naturalW * baseScale;
+          const baseH = naturalH * baseScale;
+          const rotSwap = rotation === 90 || rotation === 270;
+          vpWidth = rotSwap ? baseH : baseW;
+          vpHeight = rotSwap ? baseW : baseH;
+          cv.width = vpWidth;
+          cv.height = vpHeight;
+          const ctx = cv.getContext('2d')!;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, vpWidth, vpHeight);
+          ctx.save();
+          if (rotation === 90) {
+            ctx.translate(vpWidth, 0);
+            ctx.rotate(Math.PI / 2);
+          } else if (rotation === 180) {
+            ctx.translate(vpWidth, vpHeight);
+            ctx.rotate(Math.PI);
+          } else if (rotation === 270) {
+            ctx.translate(0, vpHeight);
+            ctx.rotate(-Math.PI / 2);
+          }
+          ctx.drawImage(img, 0, 0, baseW, baseH);
+          ctx.restore();
+        } else {
+          if (currentPage.type === 'blank') {
+            const rotSwap = rotation === 90 || rotation === 270;
+            vpWidth = (rotSwap ? 842 : 595) * baseScale;
+            vpHeight = (rotSwap ? 595 : 842) * baseScale;
+          }
+          cv.width = vpWidth;
+          cv.height = vpHeight;
+          const ctx = cv.getContext('2d')!;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, vpWidth, vpHeight);
+        }
+
+        const ctx = cv.getContext('2d')!;
+        const pageLayers = layers.filter(l => l.page === i + 1);
+
+        for (const layer of pageLayers) {
+          if (layer.type === 'text') {
+            const bw = (layer.w || 140) * exportScale;
+            const bh = (layer.h || 34) * exportScale;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(layer.x * exportScale, layer.y * exportScale, bw, bh);
+            ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * exportScale}px ${layer.fontFamily}`;
+            ctx.fillStyle = layer.color!;
+            ctx.textAlign = layer.textAlign as CanvasTextAlign;
+
+            const lines = (layer.content || '').split('\n');
+            lines.forEach((line, lineIdx) => {
+              ctx.fillText(line, layer.x * exportScale, layer.y * exportScale + (layer.fontSize! * exportScale) + (lineIdx * layer.fontSize! * exportScale * 1.2));
+            });
+          } else if (layer.type === 'shape') {
+            ctx.globalAlpha = layer.opacity!;
+            ctx.fillStyle = layer.fill!;
+            ctx.strokeStyle = layer.stroke!;
+            ctx.lineWidth = 2 * exportScale;
+            ctx.beginPath();
+            if (layer.shapeType === 'rect') {
+              ctx.rect(layer.x * exportScale, layer.y * exportScale, layer.w! * exportScale, layer.h! * exportScale);
+              ctx.fill(); ctx.stroke();
+            } else if (layer.shapeType === 'circle') {
+              const rx = (layer.w! * exportScale) / 2;
+              const ry = (layer.h! * exportScale) / 2;
+              ctx.ellipse(layer.x * exportScale + rx, layer.y * exportScale + ry, rx, ry, 0, 0, Math.PI * 2);
+              ctx.fill(); ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+          } else if (layer.type === 'img' && layer.imgSrc) {
+            const img = await loadImgEl(layer.imgSrc);
+            ctx.drawImage(img, layer.x * exportScale, layer.y * exportScale, layer.w! * exportScale, layer.h! * exportScale);
+          }
+        }
+
+        const dataUrl = cv.toDataURL('image/jpeg', jpegQuality);
+        const base64 = dataUrl.split(',')[1];
+        const name = `page-${String(i + 1).padStart(3, '0')}.jpg`;
+        zip.file(name, base64, { base64: true });
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'pages-images.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleDragStart = (e: React.DragEvent, id: number) => {
     if (editingTextId === id) {
       e.preventDefault();
@@ -902,6 +1031,14 @@ export default function Editor() {
             title="Smaller file size with lower quality"
           >
             <ArrowDownToLine className="w-4 h-4" /> Export Compressed PDF
+          </button>
+          <button
+            onClick={exportImagesZip}
+            disabled={customPages.length === 0 || isProcessing}
+            className="mt-2 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Download all pages as JPG images in a ZIP"
+          >
+            <ArrowDownToLine className="w-4 h-4" /> Export Images ZIP
           </button>
         </div>
       </div>
