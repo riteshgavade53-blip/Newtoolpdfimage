@@ -59,6 +59,9 @@ export default function Editor() {
   const layerHistoryRef = useRef<Layer[][]>([]);
   const prevLayersRef = useRef<Layer[]>([]);
   const isUndoingRef = useRef(false);
+  const pageHistoryRef = useRef<{ pages: CustomPage[]; layers: Layer[]; pageNum: number; fileLabel: string }[]>([]);
+  const lastActionRef = useRef<'page-delete' | 'layer' | 'other'>('other');
+  const pageActionRef = useRef(false);
 
   const handleFiles = async (fileList: FileList | File[] | null) => {
     if (!fileList) return;
@@ -163,6 +166,12 @@ export default function Editor() {
       return;
     }
 
+    if (pageActionRef.current) {
+      pageActionRef.current = false;
+      prevLayersRef.current = layers.map(layer => ({ ...layer }));
+      return;
+    }
+
     const previous = prevLayersRef.current;
     const changed = JSON.stringify(previous) !== JSON.stringify(layers);
     if (!changed) return;
@@ -173,6 +182,7 @@ export default function Editor() {
     }
 
     prevLayersRef.current = layers.map(layer => ({ ...layer }));
+    lastActionRef.current = 'layer';
   }, [layers]);
 
   useEffect(() => {
@@ -188,6 +198,19 @@ export default function Editor() {
 
       if (withMod && key === 'z' && !e.shiftKey && !isTypingTarget) {
         e.preventDefault();
+        if (lastActionRef.current === 'page-delete' && pageHistoryRef.current.length > 0) {
+          const previous = pageHistoryRef.current.pop()!;
+          pageActionRef.current = true;
+          isUndoingRef.current = true;
+          setCustomPages(previous.pages.map(p => ({ ...p })));
+          setLayers(previous.layers.map(l => ({ ...l })));
+          setPageNum(previous.pageNum);
+          setFileLabel(previous.fileLabel);
+          setSelectedLayerId(null);
+          setEditingTextId(null);
+          lastActionRef.current = pageHistoryRef.current.length > 0 ? 'page-delete' : 'other';
+          return;
+        }
         undoLayers();
         return;
       }
@@ -384,6 +407,14 @@ export default function Editor() {
   const deleteCurrentPage = () => {
     if (customPages.length === 0) return;
     const removeIndex = pageNum - 1;
+    pageHistoryRef.current.push({
+      pages: customPages.map(p => ({ ...p })),
+      layers: layers.map(l => ({ ...l })),
+      pageNum,
+      fileLabel
+    });
+    lastActionRef.current = 'page-delete';
+    pageActionRef.current = true;
     setCustomPages(prev => prev.filter((_, idx) => idx !== removeIndex));
     setLayers(prev => prev
       .filter(l => l.page !== pageNum)
