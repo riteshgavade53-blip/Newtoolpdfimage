@@ -29,6 +29,7 @@ interface Layer {
 interface CustomPage {
   id: string;
   type: 'pdf' | 'blank' | 'image';
+  pdfDoc?: any;
   pdfPageNum?: number;
   imageSrc?: string;
   imageWidth?: number;
@@ -36,8 +37,7 @@ interface CustomPage {
 }
 
 export default function Editor() {
-  const [file, setFile] = useState<File | null>(null);
-  const [pdf, setPdf] = useState<any>(null);
+  const [fileLabel, setFileLabel] = useState<string>('');
   const [pageNum, setPageNum] = useState(1);
   const [customPages, setCustomPages] = useState<CustomPage[]>([]);
   const [scale, setScale] = useState(1.5);
@@ -59,47 +59,65 @@ export default function Editor() {
   const prevLayersRef = useRef<Layer[]>([]);
   const isUndoingRef = useRef(false);
 
-  const handleFile = async (newFile: File | null) => {
-    if (!newFile) return;
-    const isPdf = newFile.name.toLowerCase().endsWith('.pdf') || newFile.type === 'application/pdf';
-    const isImage = newFile.type.startsWith('image/');
-    if (!isPdf && !isImage) return;
+  const handleFiles = async (fileList: FileList | File[] | null) => {
+    if (!fileList) return;
+    const files = Array.from(fileList);
+    if (!files.length) return;
 
-    setFile(newFile);
-    setLayers([]);
-    setSelectedLayerId(null);
-    setEditingTextId(null);
-    setPageNum(1);
+    const valid = files.filter((f) => {
+      const isPdf = f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf';
+      const isImage = f.type.startsWith('image/');
+      return isPdf || isImage;
+    });
+    if (!valid.length) return;
 
-    if (isPdf) {
-      const buf = await newFile.arrayBuffer();
-      const loadedPdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
-      setPdf(loadedPdf);
-
-      const initialPages: CustomPage[] = Array.from({ length: loadedPdf.numPages }, (_, i) => ({
-        id: `pdf-${i + 1}`,
-        type: 'pdf',
-        pdfPageNum: i + 1
-      }));
-      setCustomPages(initialPages);
-      return;
+    const shouldReset = customPages.length === 0;
+    if (shouldReset) {
+      setLayers([]);
+      setSelectedLayerId(null);
+      setEditingTextId(null);
+      setPageNum(1);
     }
 
-    const imageSrc = URL.createObjectURL(newFile);
-    const img = await loadImgEl(imageSrc);
-    setPdf(null);
-    setCustomPages([{
-      id: `image-${Date.now()}`,
-      type: 'image',
-      imageSrc,
-      imageWidth: img.naturalWidth,
-      imageHeight: img.naturalHeight
-    }]);
+    const newPages: CustomPage[] = [];
+    let idCounter = 0;
+    const base = Date.now();
+
+    for (const f of valid) {
+      const isPdf = f.name.toLowerCase().endsWith('.pdf') || f.type === 'application/pdf';
+      const isImage = f.type.startsWith('image/');
+
+      if (isPdf) {
+        const buf = await f.arrayBuffer();
+        const loadedPdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+        const pdfPages: CustomPage[] = Array.from({ length: loadedPdf.numPages }, (_, i) => ({
+          id: `pdf-${base}-${idCounter++}`,
+          type: 'pdf',
+          pdfDoc: loadedPdf,
+          pdfPageNum: i + 1
+        }));
+        newPages.push(...pdfPages);
+      } else if (isImage) {
+        const imageSrc = URL.createObjectURL(f);
+        const img = await loadImgEl(imageSrc);
+        newPages.push({
+          id: `image-${base}-${idCounter++}`,
+          type: 'image',
+          imageSrc,
+          imageWidth: img.naturalWidth,
+          imageHeight: img.naturalHeight
+        });
+      }
+    }
+
+    if (!newPages.length) return;
+    setCustomPages(prev => shouldReset ? newPages : [...prev, ...newPages]);
+    setFileLabel(valid.length === 1 ? valid[0].name : `${valid.length} files selected`);
   };
 
   useEffect(() => {
     if (customPages.length > 0) renderPage();
-  }, [pdf, pageNum, scale, customPages]);
+  }, [pageNum, scale, customPages]);
   
   useEffect(() => {
     const target = scrollTargetRef.current;
@@ -232,10 +250,9 @@ export default function Editor() {
       return;
     }
     
-    if (!pdf) return;
-    
     try {
-      const page = await pdf.getPage(currentPage.pdfPageNum!);
+      if (!currentPage.pdfDoc) return;
+      const page = await currentPage.pdfDoc.getPage(currentPage.pdfPageNum!);
       const vp = page.getViewport({ scale });
       cv.width = vp.width;
       cv.height = vp.height;
@@ -355,8 +372,8 @@ export default function Editor() {
         let vpHeight = 842 * 2;
         let exportScale = 2;
         
-        if (currentPage.type === 'pdf' && pdf) {
-          const page = await pdf.getPage(currentPage.pdfPageNum!);
+        if (currentPage.type === 'pdf' && currentPage.pdfDoc) {
+          const page = await currentPage.pdfDoc.getPage(currentPage.pdfPageNum!);
           const vp = page.getViewport({ scale: 2 });
           vpWidth = vp.width;
           vpHeight = vp.height;
@@ -570,13 +587,23 @@ export default function Editor() {
             onClick={() => fileInputRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFile(e.dataTransfer.files[0]); }}
+            onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
           >
             <FileText className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-            <div className="text-sm font-semibold mb-1 truncate px-2">{file ? file.name : 'Upload PDF or Image'}</div>
-            <div className="text-xs text-slate-500">Click or drag & drop</div>
+            <div className="text-sm font-semibold mb-1 truncate px-2">{fileLabel || 'Upload PDF or Image(s)'}</div>
+            <div className="text-xs text-slate-500">Click or drag & drop (multiple supported)</div>
           </div>
-          <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" onChange={(e) => handleFile(e.target.files?.[0] || null)} />
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept=".pdf,image/*"
+            multiple
+            onChange={(e) => {
+              handleFiles(e.target.files);
+              e.currentTarget.value = '';
+            }}
+          />
         </div>
 
         <div className="p-4 border-b border-slate-800 space-y-3">
