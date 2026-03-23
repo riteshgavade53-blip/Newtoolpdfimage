@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { pdfjsLib, jsPDF, loadImgEl } from '../utils/pdfUtils';
-import { Edit2, FileText, ArrowDownToLine, Type, Square, Image as ImageIcon, Trash2, ZoomIn, ZoomOut, FilePlus, Copy, ClipboardPaste } from 'lucide-react';
+import { Edit2, FileText, ArrowDownToLine, Type, Square, Image as ImageIcon, Trash2, ZoomIn, ZoomOut, FilePlus, Copy, ClipboardPaste, RotateCw, RotateCcw } from 'lucide-react';
 
 interface Layer {
   id: number;
@@ -31,6 +31,7 @@ interface CustomPage {
   type: 'pdf' | 'blank' | 'image';
   pdfDoc?: any;
   pdfPageNum?: number;
+  rotation?: number;
   imageSrc?: string;
   imageWidth?: number;
   imageHeight?: number;
@@ -94,7 +95,8 @@ export default function Editor() {
           id: `pdf-${base}-${idCounter++}`,
           type: 'pdf',
           pdfDoc: loadedPdf,
-          pdfPageNum: i + 1
+          pdfPageNum: i + 1,
+          rotation: 0
         }));
         newPages.push(...pdfPages);
       } else if (isImage) {
@@ -105,7 +107,8 @@ export default function Editor() {
           type: 'image',
           imageSrc,
           imageWidth: img.naturalWidth,
-          imageHeight: img.naturalHeight
+          imageHeight: img.naturalHeight,
+          rotation: 0
         });
       }
     }
@@ -227,9 +230,14 @@ export default function Editor() {
     
     const cv = canvasRef.current;
     
+    const rotation = currentPage.rotation || 0;
+
     if (currentPage.type === 'blank') {
-      cv.width = 595 * scale;
-      cv.height = 842 * scale;
+      const baseW = 595;
+      const baseH = 842;
+      const rotSwap = rotation === 90 || rotation === 270;
+      cv.width = (rotSwap ? baseH : baseW) * scale;
+      cv.height = (rotSwap ? baseW : baseH) * scale;
       const ctx = cv.getContext('2d')!;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, cv.width, cv.height);
@@ -241,19 +249,34 @@ export default function Editor() {
       const naturalW = currentPage.imageWidth || img.naturalWidth;
       const naturalH = currentPage.imageHeight || img.naturalHeight;
       const fitRatio = Math.min(1, 1200 / Math.max(naturalW, naturalH));
-      cv.width = Math.max(1, Math.round(naturalW * fitRatio * scale));
-      cv.height = Math.max(1, Math.round(naturalH * fitRatio * scale));
+      const baseW = Math.max(1, Math.round(naturalW * fitRatio));
+      const baseH = Math.max(1, Math.round(naturalH * fitRatio));
+      const rotSwap = rotation === 90 || rotation === 270;
+      cv.width = Math.max(1, Math.round((rotSwap ? baseH : baseW) * scale));
+      cv.height = Math.max(1, Math.round((rotSwap ? baseW : baseH) * scale));
       const ctx = cv.getContext('2d')!;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, cv.width, cv.height);
-      ctx.drawImage(img, 0, 0, cv.width, cv.height);
+      ctx.save();
+      if (rotation === 90) {
+        ctx.translate(cv.width, 0);
+        ctx.rotate(Math.PI / 2);
+      } else if (rotation === 180) {
+        ctx.translate(cv.width, cv.height);
+        ctx.rotate(Math.PI);
+      } else if (rotation === 270) {
+        ctx.translate(0, cv.height);
+        ctx.rotate(-Math.PI / 2);
+      }
+      ctx.drawImage(img, 0, 0, baseW * scale, baseH * scale);
+      ctx.restore();
       return;
     }
     
     try {
       if (!currentPage.pdfDoc) return;
       const page = await currentPage.pdfDoc.getPage(currentPage.pdfPageNum!);
-      const vp = page.getViewport({ scale });
+      const vp = page.getViewport({ scale, rotation });
       cv.width = vp.width;
       cv.height = vp.height;
       
@@ -268,9 +291,112 @@ export default function Editor() {
   };
 
   const addBlankPage = () => {
-    const newPages = [...customPages, { id: `blank-${Date.now()}`, type: 'blank' }];
+    const newPages = [...customPages, { id: `blank-${Date.now()}`, type: 'blank', rotation: 0 }];
     setCustomPages(newPages);
     setPageNum(newPages.length);
+  };
+
+  const getLayerAutoSize = (layer: Layer) => {
+    if (layer.type !== 'text') {
+      return {
+        w: layer.w || 100,
+        h: layer.h || 100
+      };
+    }
+    const textContent = layer.content || '';
+    const textLines = textContent.split('\n');
+    const longestLine = textLines.reduce((max, line) => Math.max(max, line.length), 0);
+    const baseFontSize = layer.fontSize || 18;
+    const autoW = Math.max(60, longestLine * baseFontSize * 0.6 + 12);
+    const autoH = Math.max(baseFontSize * 1.5, textLines.length * baseFontSize * 1.2 + 12);
+    return {
+      w: layer.w || autoW,
+      h: layer.h || autoH
+    };
+  };
+
+  const getPageBaseSize = async (page: CustomPage) => {
+    const rotation = page.rotation || 0;
+    if (page.type === 'blank') {
+      const baseW = 595;
+      const baseH = 842;
+      const rotSwap = rotation === 90 || rotation === 270;
+      return { w: rotSwap ? baseH : baseW, h: rotSwap ? baseW : baseH };
+    }
+    if (page.type === 'image' && page.imageSrc) {
+      const naturalW = page.imageWidth || 1;
+      const naturalH = page.imageHeight || 1;
+      const fitRatio = Math.min(1, 1200 / Math.max(naturalW, naturalH));
+      const baseW = Math.max(1, Math.round(naturalW * fitRatio));
+      const baseH = Math.max(1, Math.round(naturalH * fitRatio));
+      const rotSwap = rotation === 90 || rotation === 270;
+      return { w: rotSwap ? baseH : baseW, h: rotSwap ? baseW : baseH };
+    }
+    if (page.type === 'pdf' && page.pdfDoc) {
+      const pdfPage = await page.pdfDoc.getPage(page.pdfPageNum!);
+      const vp = pdfPage.getViewport({ scale: 1, rotation });
+      return { w: vp.width, h: vp.height };
+    }
+    return null;
+  };
+
+  const rotateCurrentPage = async (dir: 'cw' | 'ccw') => {
+    const current = customPages[pageNum - 1];
+    if (!current) return;
+    const delta = dir === 'cw' ? 90 : -90;
+    const baseSize = await getPageBaseSize(current);
+    if (!baseSize) return;
+
+    const W = baseSize.w;
+    const H = baseSize.h;
+
+    setLayers(prev => prev.map(layer => {
+      if (layer.page !== pageNum) return layer;
+      const { w, h } = getLayerAutoSize(layer);
+      let newX = layer.x;
+      let newY = layer.y;
+      let newW = w;
+      let newH = h;
+
+      if (delta === 90) {
+        newX = H - (layer.y + h);
+        newY = layer.x;
+        newW = h;
+        newH = w;
+      } else if (delta === -90) {
+        newX = layer.y;
+        newY = W - (layer.x + w);
+        newW = h;
+        newH = w;
+      }
+
+      return { ...layer, x: newX, y: newY, w: newW, h: newH };
+    }));
+
+    setCustomPages(prev => prev.map((p, idx) => {
+      if (idx !== pageNum - 1) return p;
+      const currentRot = p.rotation || 0;
+      const nextRot = (currentRot + delta + 360) % 360;
+      return { ...p, rotation: nextRot };
+    }));
+  };
+
+  const deleteCurrentPage = () => {
+    if (customPages.length === 0) return;
+    const removeIndex = pageNum - 1;
+    setCustomPages(prev => prev.filter((_, idx) => idx !== removeIndex));
+    setLayers(prev => prev
+      .filter(l => l.page !== pageNum)
+      .map(l => l.page > pageNum ? { ...l, page: l.page - 1 } : l)
+    );
+    setSelectedLayerId(null);
+    setEditingTextId(null);
+    setPageNum(prev => {
+      if (customPages.length === 1) return 1;
+      if (pageNum === customPages.length) return Math.max(1, prev - 1);
+      return prev;
+    });
+    if (customPages.length === 1) setFileLabel('');
   };
 
   const addText = () => {
@@ -358,7 +484,7 @@ export default function Editor() {
     if (selectedLayerId === id) setSelectedLayerId(null);
   };
 
-  const exportPdf = async () => {
+  const exportPdfWithOptions = async (jpegQuality: number, baseScale: number, filename: string) => {
     if (customPages.length === 0) return;
     setIsProcessing(true);
     
@@ -368,13 +494,14 @@ export default function Editor() {
       for (let i = 0; i < customPages.length; i++) {
         const currentPage = customPages[i];
         const cv = document.createElement('canvas');
-        let vpWidth = 595 * 2;
-        let vpHeight = 842 * 2;
-        let exportScale = 2;
+        let vpWidth = 595 * baseScale;
+        let vpHeight = 842 * baseScale;
+        let exportScale = baseScale;
+        const rotation = currentPage.rotation || 0;
         
         if (currentPage.type === 'pdf' && currentPage.pdfDoc) {
           const page = await currentPage.pdfDoc.getPage(currentPage.pdfPageNum!);
-          const vp = page.getViewport({ scale: 2 });
+          const vp = page.getViewport({ scale: baseScale, rotation });
           vpWidth = vp.width;
           vpHeight = vp.height;
           cv.width = vpWidth;
@@ -387,16 +514,36 @@ export default function Editor() {
           const naturalW = currentPage.imageWidth || img.naturalWidth;
           const naturalH = currentPage.imageHeight || img.naturalHeight;
           const fitRatio = Math.min(1, 1200 / Math.max(naturalW, naturalH));
-          exportScale = 2 / fitRatio;
-          vpWidth = naturalW * 2;
-          vpHeight = naturalH * 2;
+          exportScale = baseScale / fitRatio;
+          const baseW = naturalW * baseScale;
+          const baseH = naturalH * baseScale;
+          const rotSwap = rotation === 90 || rotation === 270;
+          vpWidth = rotSwap ? baseH : baseW;
+          vpHeight = rotSwap ? baseW : baseH;
           cv.width = vpWidth;
           cv.height = vpHeight;
           const ctx = cv.getContext('2d')!;
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, vpWidth, vpHeight);
-          ctx.drawImage(img, 0, 0, vpWidth, vpHeight);
+          ctx.save();
+          if (rotation === 90) {
+            ctx.translate(vpWidth, 0);
+            ctx.rotate(Math.PI / 2);
+          } else if (rotation === 180) {
+            ctx.translate(vpWidth, vpHeight);
+            ctx.rotate(Math.PI);
+          } else if (rotation === 270) {
+            ctx.translate(0, vpHeight);
+            ctx.rotate(-Math.PI / 2);
+          }
+          ctx.drawImage(img, 0, 0, baseW, baseH);
+          ctx.restore();
         } else {
+          if (currentPage.type === 'blank') {
+            const rotSwap = rotation === 90 || rotation === 270;
+            vpWidth = (rotSwap ? 842 : 595) * baseScale;
+            vpHeight = (rotSwap ? 595 : 842) * baseScale;
+          }
           cv.width = vpWidth;
           cv.height = vpHeight;
           const ctx = cv.getContext('2d')!;
@@ -443,9 +590,9 @@ export default function Editor() {
           }
         }
         
-        const imgData = cv.toDataURL('image/jpeg', 0.95);
-        const pw = vpWidth / 2;
-        const ph = vpHeight / 2;
+        const imgData = cv.toDataURL('image/jpeg', jpegQuality);
+        const pw = vpWidth / baseScale;
+        const ph = vpHeight / baseScale;
         
         if (!npdf) {
           npdf = new jsPDF({ orientation: pw > ph ? 'landscape' : 'portrait', unit: 'pt', format: [pw, ph] });
@@ -455,13 +602,16 @@ export default function Editor() {
         npdf.addImage(imgData, 'JPEG', 0, 0, pw, ph);
       }
       
-      if (npdf) npdf.save('edited-document.pdf');
+      if (npdf) npdf.save(filename);
     } catch (err) {
       console.error(err);
     } finally {
       setIsProcessing(false);
     }
   };
+
+  const exportPdf = () => exportPdfWithOptions(0.95, 2, 'edited-document.pdf');
+  const exportCompressedPdf = () => exportPdfWithOptions(0.65, 1.2, 'edited-document-compressed.pdf');
 
   const handleDragStart = (e: React.DragEvent, id: number) => {
     if (editingTextId === id) {
@@ -714,6 +864,14 @@ export default function Editor() {
           >
             <ArrowDownToLine className="w-4 h-4" /> Export PDF
           </button>
+          <button
+            onClick={exportCompressedPdf}
+            disabled={customPages.length === 0 || isProcessing}
+            className="mt-2 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Smaller file size with lower quality"
+          >
+            <ArrowDownToLine className="w-4 h-4" /> Export Compressed PDF
+          </button>
         </div>
       </div>
 
@@ -741,9 +899,14 @@ export default function Editor() {
               <span className="text-xs font-semibold text-slate-300 w-16 text-center">Page {pageNum} / {customPages.length}</span>
               <button onClick={() => setPageNum(Math.min(customPages.length, pageNum + 1))} disabled={pageNum >= customPages.length} className="text-slate-400 hover:text-slate-200 disabled:opacity-30">▶</button>
               <div className="w-px h-4 bg-slate-700"></div>
+              <button onClick={() => rotateCurrentPage('ccw')} disabled={customPages.length === 0} className="text-slate-400 hover:text-slate-200 disabled:opacity-30" title="Rotate Left"><RotateCcw className="w-4 h-4" /></button>
+              <button onClick={() => rotateCurrentPage('cw')} disabled={customPages.length === 0} className="text-slate-400 hover:text-slate-200 disabled:opacity-30" title="Rotate Right"><RotateCw className="w-4 h-4" /></button>
+              <div className="w-px h-4 bg-slate-700"></div>
               <button onClick={() => setScale(Math.max(0.5, scale - 0.2))} className="text-slate-400 hover:text-slate-200"><ZoomOut className="w-4 h-4" /></button>
               <span className="text-xs font-semibold text-slate-300 w-12 text-center">{Math.round(scale * 100)}%</span>
               <button onClick={() => setScale(Math.min(3, scale + 0.2))} className="text-slate-400 hover:text-slate-200"><ZoomIn className="w-4 h-4" /></button>
+              <div className="w-px h-4 bg-slate-700"></div>
+              <button onClick={deleteCurrentPage} disabled={customPages.length === 0} className="text-red-400 hover:text-red-300 disabled:opacity-30" title="Delete Page"><Trash2 className="w-4 h-4" /></button>
             </div>
             
             <div 
