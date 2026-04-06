@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home as HomeIcon, Edit2, Image as ImageIcon, Minimize2, Trash2, FileText, FileImage, RotateCw, Sparkles } from 'lucide-react';
+import { Home as HomeIcon, Edit2, Image as ImageIcon, Languages, Minimize2, Trash2, FileText, FileImage, RotateCw, Sparkles } from 'lucide-react';
 import Home from './components/Home';
 import Editor from './components/Editor';
 import ImagesToPdf from './components/ImagesToPdf';
@@ -9,7 +9,7 @@ import WordConverter from './components/WordConverter';
 import PdfToImage from './components/PdfToImage';
 import RotatePages from './components/RotatePages';
 import CleanExcel from './components/CleanExcel';
-import CleanExcel from './components/MultilanguageFileConvert';
+import MultilanguageFileConvert from './components/MultilanguageFileConvert';
 
 
 const tabs = [
@@ -22,7 +22,7 @@ const tabs = [
   { id: 'pdf2img', label: 'PDF->Image', icon: FileImage },
   { id: 'rotate', label: 'Rotate Pages', icon: RotateCw },
   { id: 'cleanexcel', label: 'Clean Excel', icon: Sparkles },
-  { id: 'MultilanguageFileConvert', label: 'Multi language File Convert', icon: - },
+  { id: 'multilanguage-file-convert', label: 'Multi Language File Convert', icon: Languages },
 ];
 
 export default function App() {
@@ -80,7 +80,7 @@ export default function App() {
         {activeTab === 'pdf2img' && <PdfToImage />}
         {activeTab === 'rotate' && <RotatePages />}
         {activeTab === 'cleanexcel' && <CleanExcel />}
-        {activeTab === 'MultilanguageFileConvert' && <MultilanguageFileConvert />}
+        {activeTab === 'multilanguage-file-convert' && <MultilanguageFileConvert />}
 
       </main>
     </div>
