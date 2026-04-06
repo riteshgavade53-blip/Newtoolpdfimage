@@ -14,7 +14,7 @@ interface FileData {
   content: ArrayBuffer;
 }
 
-export default function App() {
+export default function MultilanguageFileConvert() {
   const [file, setFile] = useState<FileData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<{ blob: Blob; name: string } | null>(null);
