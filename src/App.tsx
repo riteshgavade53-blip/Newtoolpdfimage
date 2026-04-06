@@ -22,6 +22,7 @@ const tabs = [
   { id: 'pdf2img', label: 'PDF->Image', icon: FileImage },
   { id: 'rotate', label: 'Rotate Pages', icon: RotateCw },
   { id: 'cleanexcel', label: 'Clean Excel', icon: Sparkles },
+  { id: 'MultilanguageFileConvert', label: 'Multi language File Convert', icon: - },
 ];
 
 export default function App() {
@@ -79,6 +80,8 @@ export default function App() {
         {activeTab === 'pdf2img' && <PdfToImage />}
         {activeTab === 'rotate' && <RotatePages />}
         {activeTab === 'cleanexcel' && <CleanExcel />}
+        {activeTab === 'MultilanguageFileConvert' && <MultilanguageFileConvert />}
+
       </main>
     </div>
   );
