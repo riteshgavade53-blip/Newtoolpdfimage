@@ -63,6 +63,54 @@ export default function Editor() {
   const lastActionRef = useRef<'page-delete' | 'layer' | 'other'>('other');
   const pageActionRef = useRef(false);
 
+  const createBlankPage = (): CustomPage => ({
+    id: `blank-${Date.now()}`,
+    type: 'blank',
+    rotation: 0
+  });
+
+  const measureTextLayerSize = (layer: Layer) => {
+    const fontSize = layer.fontSize || 18;
+    const text = layer.content || '';
+    const lines = text.split('\n');
+    const measureCanvas = document.createElement('canvas');
+    const measureCtx = measureCanvas.getContext('2d');
+    if (measureCtx) {
+      measureCtx.font = `${layer.fontStyle || 'normal'} ${layer.fontWeight || 'normal'} ${fontSize}px ${layer.fontFamily || 'Arial'}`;
+    }
+    const widestLine = lines.reduce((max, line) => {
+      const measuredWidth = measureCtx ? measureCtx.measureText(line || ' ').width : line.length * fontSize * 0.6;
+      return Math.max(max, measuredWidth);
+    }, 0);
+    return {
+      w: Math.max(60, Math.ceil(widestLine + 12)),
+      h: Math.max(fontSize * 1.5, Math.ceil(lines.length * fontSize * 1.2 + 12))
+    };
+  };
+
+  const createImageLayerFromFile = async (file: File, targetPage = pageNum) => {
+    const imgSrc = URL.createObjectURL(file);
+    const img = await loadImgEl(imgSrc);
+    const page = customPages[targetPage - 1];
+    const pageSize = page ? await getPageBaseSize(page) : { w: 595, h: 842 };
+    const maxW = Math.max(120, (pageSize?.w || 595) * 0.7);
+    const maxH = Math.max(120, (pageSize?.h || 842) * 0.7);
+    const fit = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+    const width = Math.max(60, Math.round(img.naturalWidth * fit));
+    const height = Math.max(60, Math.round(img.naturalHeight * fit));
+
+    return {
+      id: Date.now(),
+      type: 'img' as const,
+      page: targetPage,
+      x: 40,
+      y: 40,
+      w: width,
+      h: height,
+      imgSrc
+    };
+  };
+
   const handleFiles = async (fileList: FileList | File[] | null) => {
     if (!fileList) return;
     const files = Array.from(fileList);
@@ -224,13 +272,6 @@ export default function Editor() {
         return;
       }
 
-      if (withMod && key === 'v') {
-        if (!copiedLayer || customPages.length === 0) return;
-        e.preventDefault();
-        pasteLayer(copiedLayer);
-        return;
-      }
-
       if ((key === 'delete' || key === 'backspace') && selectedLayerId) {
         e.preventDefault();
         deleteLayer(selectedLayerId);
@@ -240,6 +281,53 @@ export default function Editor() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [selectedLayerId, layers, copiedLayer, pageNum, customPages.length]);
+
+  useEffect(() => {
+    const onPaste = async (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTypingTarget = !!target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      );
+      if (isTypingTarget) return;
+
+      const items = Array.from(e.clipboardData?.items || []);
+      const imageItem = items.find(item => item.type.startsWith('image/'));
+
+      if (imageItem) {
+        const file = imageItem.getAsFile();
+        if (!file) return;
+        e.preventDefault();
+
+        if (customPages.length === 0) {
+          const blankPage = createBlankPage();
+          const imageLayer = await createImageLayerFromFile(file, 1);
+          setCustomPages([blankPage]);
+          setLayers([imageLayer]);
+          setPageNum(1);
+          setSelectedLayerId(imageLayer.id);
+          setEditingTextId(null);
+          setFileLabel('Blank Page');
+          return;
+        }
+
+        const imageLayer = await createImageLayerFromFile(file, pageNum);
+        setLayers(prev => [...prev, imageLayer]);
+        setSelectedLayerId(imageLayer.id);
+        setEditingTextId(null);
+        return;
+      }
+
+      if (copiedLayer && customPages.length > 0) {
+        e.preventDefault();
+        pasteLayer(copiedLayer);
+      }
+    };
+
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [copiedLayer, customPages, pageNum]);
 
   const renderTaskRef = useRef<any>(null);
 
@@ -314,9 +402,10 @@ export default function Editor() {
   };
 
   const addBlankPage = () => {
-    const newPages = [...customPages, { id: `blank-${Date.now()}`, type: 'blank', rotation: 0 }];
+    const newPages = [...customPages, createBlankPage()];
     setCustomPages(newPages);
     setPageNum(newPages.length);
+    if (!fileLabel) setFileLabel('Blank Page');
   };
 
   const getLayerAutoSize = (layer: Layer) => {
@@ -326,12 +415,7 @@ export default function Editor() {
         h: layer.h || 100
       };
     }
-    const textContent = layer.content || '';
-    const textLines = textContent.split('\n');
-    const longestLine = textLines.reduce((max, line) => Math.max(max, line.length), 0);
-    const baseFontSize = layer.fontSize || 18;
-    const autoW = Math.max(60, longestLine * baseFontSize * 0.6 + 12);
-    const autoH = Math.max(baseFontSize * 1.5, textLines.length * baseFontSize * 1.2 + 12);
+    const { w: autoW, h: autoH } = measureTextLayerSize(layer);
     return {
       w: layer.w || autoW,
       h: layer.h || autoH
@@ -473,23 +557,25 @@ export default function Editor() {
 
   const addImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0]) return;
-    const url = URL.createObjectURL(e.target.files[0]);
-    const newLayer: Layer = {
-      id: Date.now(),
-      type: 'img',
-      page: pageNum,
-      x: 50,
-      y: 50,
-      w: 150,
-      h: 150,
-      imgSrc: url
-    };
-    setLayers([...layers, newLayer]);
-    setSelectedLayerId(newLayer.id);
+    createImageLayerFromFile(e.target.files[0]).then((newLayer) => {
+      setLayers(prev => [...prev, newLayer]);
+      setSelectedLayerId(newLayer.id);
+      setEditingTextId(null);
+    });
+    e.target.value = '';
   };
 
   const updateLayer = (id: number, updates: Partial<Layer>) => {
-    setLayers(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
+    setLayers(prev => prev.map((layer) => {
+      if (layer.id !== id) return layer;
+      const nextLayer = { ...layer, ...updates };
+      if (nextLayer.type === 'text') {
+        const minSize = measureTextLayerSize(nextLayer);
+        nextLayer.w = Math.max(nextLayer.w || 0, minSize.w);
+        nextLayer.h = Math.max(nextLayer.h || 0, minSize.h);
+      }
+      return nextLayer;
+    }));
   };
 
   const changeTextSize = (id: number, delta: number) => {
@@ -807,14 +893,9 @@ export default function Editor() {
     const startY = e.clientY;
     const layer = layers.find(l => l.id === id);
     if (!layer) return;
-    const textContent = layer.content || '';
-    const textLines = textContent.split('\n');
-    const longestLine = textLines.reduce((max, line) => Math.max(max, line.length), 0);
-    const baseFontSize = layer.fontSize || 18;
-    const autoW = Math.max(60, longestLine * baseFontSize * 0.6 + 12);
-    const autoH = Math.max(baseFontSize * 1.5, textLines.length * baseFontSize * 1.2 + 12);
-    const startW = layer.w || (layer.type === 'text' ? autoW : 100);
-    const startH = layer.h || (layer.type === 'text' ? autoH : 100);
+    const autoSize = layer.type === 'text' ? measureTextLayerSize(layer) : { w: 100, h: 100 };
+    const startW = layer.w || autoSize.w;
+    const startH = layer.h || autoSize.h;
     const startFontSize = layer.fontSize || 18;
     const startLX = layer.x;
     const startLY = layer.y;
@@ -843,9 +924,20 @@ export default function Editor() {
       }
 
       if (layer.type === 'text') {
-        const ratio = Math.min(newW / startW, newH / startH);
+        const widthRatio = newW / startW;
+        const heightRatio = newH / startH;
+        const ratio = handle === 'e' || handle === 'w'
+          ? widthRatio
+          : handle === 'n' || handle === 's'
+            ? heightRatio
+            : Math.min(widthRatio, heightRatio);
         const newFontSize = Math.max(6, Math.round(startFontSize * ratio));
-        updateLayer(id, { w: newW, h: newH, x: newX, y: newY, fontSize: newFontSize });
+        const measuredSize = measureTextLayerSize({ ...layer, fontSize: newFontSize });
+        const finalW = Math.max(newW, measuredSize.w);
+        const finalH = Math.max(newH, measuredSize.h);
+        if (handle.includes('w')) newX = startLX + (startW - finalW);
+        if (handle.includes('n')) newY = startLY + (startH - finalH);
+        updateLayer(id, { w: finalW, h: finalH, x: newX, y: newY, fontSize: newFontSize });
       } else {
         updateLayer(id, { w: newW, h: newH, x: newX, y: newY });
       }
@@ -924,13 +1016,13 @@ export default function Editor() {
           </div>
           <div className="flex gap-2">
             <button onClick={() => imgInputRef.current?.click()} disabled={customPages.length === 0} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"><ImageIcon className="w-3 h-3" /> Image</button>
-            <button onClick={addBlankPage} disabled={customPages.length === 0} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"><FilePlus className="w-3 h-3" /> Blank Page</button>
+            <button onClick={addBlankPage} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1"><FilePlus className="w-3 h-3" /> Blank Page</button>
           </div>
           <div className="flex gap-2">
             <button onClick={copySelectedLayer} disabled={!selectedLayerId} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"><Copy className="w-3 h-3" /> Copy</button>
             <button onClick={pasteCopiedLayer} disabled={!copiedLayer || customPages.length === 0} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"><ClipboardPaste className="w-3 h-3" /> Paste</button>
           </div>
-          <div className="text-[10px] text-slate-500">Shortcut: Ctrl/Cmd + C, V, Z, Delete</div>
+          <div className="text-[10px] text-slate-500">Shortcut: Ctrl/Cmd + C, V, Z, Delete. Clipboard image paste supported.</div>
           <input type="file" ref={imgInputRef} className="hidden" accept="image/*" onChange={addImage} />
         </div>
 
@@ -1055,10 +1147,7 @@ export default function Editor() {
             <Edit2 className="w-16 h-16 mb-4 opacity-50" />
             <div className="font-semibold text-lg text-slate-300">Open a PDF, image, or start blank</div>
             <div className="text-sm mt-2">Use the sidebar to upload your file</div>
-            <button onClick={() => {
-              setCustomPages([{ id: `blank-${Date.now()}`, type: 'blank' }]);
-              setPageNum(1);
-            }} className="mt-6 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2 px-6 rounded-full transition-colors">Start with Blank Page</button>
+            <button onClick={addBlankPage} className="mt-6 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2 px-6 rounded-full transition-colors">Start with Blank Page</button>
           </div>
         ) : (
           <>
