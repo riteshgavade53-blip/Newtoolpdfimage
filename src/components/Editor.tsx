@@ -23,6 +23,7 @@ interface Layer {
   stroke?: string;
   opacity?: number;
   imgSrc?: string;
+  aspectRatio?: number;
   page: number;
 }
 
@@ -107,7 +108,8 @@ export default function Editor() {
       y: 40,
       w: width,
       h: height,
-      imgSrc
+      imgSrc,
+      aspectRatio: img.naturalWidth / img.naturalHeight
     };
   };
 
@@ -573,6 +575,13 @@ export default function Editor() {
         const minSize = measureTextLayerSize(nextLayer);
         nextLayer.w = Math.max(nextLayer.w || 0, minSize.w);
         nextLayer.h = Math.max(nextLayer.h || 0, minSize.h);
+      } else if (nextLayer.type === 'img') {
+        const ratio = nextLayer.aspectRatio || layer.aspectRatio || ((layer.w && layer.h) ? layer.w / layer.h : 1);
+        if (updates.w != null && updates.h == null) {
+          nextLayer.h = Math.max(20, Math.round((updates.w as number) / ratio));
+        } else if (updates.h != null && updates.w == null) {
+          nextLayer.w = Math.max(20, Math.round((updates.h as number) * ratio));
+        }
       }
       return nextLayer;
     }));
@@ -907,7 +916,7 @@ export default function Editor() {
     const startFontSize = layer.fontSize || 18;
     const startLX = layer.x;
     const startLY = layer.y;
-    const minSize = 20;
+    const minSize = layer.type === 'shape' ? 2 : 20;
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       const dx = (moveEvent.clientX - startX) / scale;
@@ -946,6 +955,24 @@ export default function Editor() {
         if (handle.includes('w')) newX = startLX + (startW - finalW);
         if (handle.includes('n')) newY = startLY + (startH - finalH);
         updateLayer(id, { w: finalW, h: finalH, x: newX, y: newY, fontSize: newFontSize });
+      } else if (layer.type === 'img') {
+        const ratio = layer.aspectRatio || (startW / startH) || 1;
+        let finalW = newW;
+        let finalH = newH;
+
+        if (handle === 'e' || handle === 'w') {
+          finalH = Math.max(minSize, Math.round(finalW / ratio));
+        } else if (handle === 'n' || handle === 's') {
+          finalW = Math.max(minSize, Math.round(finalH * ratio));
+        } else {
+          const dominantScale = Math.max(finalW / startW, finalH / startH);
+          finalW = Math.max(minSize, Math.round(startW * dominantScale));
+          finalH = Math.max(minSize, Math.round(finalW / ratio));
+        }
+
+        if (handle.includes('w')) newX = startLX + (startW - finalW);
+        if (handle.includes('n')) newY = startLY + (startH - finalH);
+        updateLayer(id, { w: finalW, h: finalH, x: newX, y: newY });
       } else {
         updateLayer(id, { w: newW, h: newH, x: newX, y: newY });
       }
@@ -1196,11 +1223,15 @@ export default function Editor() {
             </div>
             
             <div 
-              className="relative shadow-2xl bg-white"
+              className="relative shadow-2xl bg-white border border-slate-300"
               ref={overlayRef}
               onDragOver={e => e.preventDefault()}
               onDrop={handleDrop}
               onClick={(e) => { e.stopPropagation(); if (e.target === overlayRef.current) { setSelectedLayerId(null); setEditingTextId(null); } }}
+              style={customPages[pageNum - 1]?.type === 'blank' ? {
+                backgroundImage: 'linear-gradient(to right, rgba(148,163,184,0.18) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.18) 1px, transparent 1px)',
+                backgroundSize: `${24 * scale}px ${24 * scale}px`
+              } : undefined}
             >
               <canvas ref={canvasRef} className="block pointer-events-none" />
               
@@ -1258,7 +1289,7 @@ export default function Editor() {
                       alt=""
                       draggable={false}
                       onMouseDown={(e) => { e.stopPropagation(); setSelectedLayerId(layer.id); }}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-fill"
                     />
                   )}
                   
