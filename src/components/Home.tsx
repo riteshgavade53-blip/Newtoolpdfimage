@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Image as ImageIcon, Minimize2, Trash2, FileText, FileImage, RotateCw, Sparkles } from 'lucide-react';
+import { Edit2, Image as ImageIcon, Languages, Minimize2, Trash2, FileText, FileImage, RotateCw, Sparkles } from 'lucide-react';
 
 const tools = [
   { id: 'editor', icon: Edit2, title: 'PDF & Image Editor', desc: 'Add text, shapes, images. Drag, resize, recolor. Export finished PDF.', badge: 'Most Popular', color: 'from-indigo-500/30 to-purple-400/10 border-indigo-500/20 text-indigo-400' },
@@ -10,6 +10,7 @@ const tools = [
   { id: 'pdf2img', icon: FileImage, title: 'PDF -> Image', desc: 'Convert every PDF page to JPG, PNG or WebP. Download all as ZIP.', badge: 'New', color: 'from-pink-500/30 to-cyan-400/10 border-pink-500/20 text-pink-400' },
   { id: 'rotate', icon: RotateCw, title: 'Rotate Pages', desc: 'Rotate individual or all pages. Preview rotation live. Export fixed PDF.', badge: 'New', color: 'from-amber-500/30 to-emerald-400/10 border-amber-500/20 text-amber-400' },
   { id: 'cleanexcel', icon: Sparkles, title: 'Clean Excel', desc: 'Tool removes only special characters and Chinese words.', badge: 'Data Cleanup', color: 'from-emerald-500/30 to-lime-400/10 border-emerald-500/20 text-emerald-400' },
+  { id: 'multilanguage-file-convert', icon: Languages, title: 'Multi Language File Convert', desc: 'Fix CSV encoding issues and export a clean UTF-8 file for Excel.', badge: 'CSV Repair', color: 'from-sky-500/30 to-indigo-400/10 border-sky-500/20 text-sky-400' },
 ];
 
 export default function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
