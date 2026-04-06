@@ -728,7 +728,15 @@ export default function Editor() {
   };
 
   const exportPdf = () => exportPdfWithOptions(0.95, 2, 'edited-document.pdf');
-  const exportCompressedPdf = () => exportPdfWithOptions(0.65, 1.2, 'edited-document-compressed.pdf');
+  const exportCompressedPdf = (level: 'low' | 'normal' | 'high') => {
+    const options = {
+      low: { jpegQuality: 0.8, baseScale: 1.5, filename: 'edited-document-low-compression.pdf' },
+      normal: { jpegQuality: 0.65, baseScale: 1.2, filename: 'edited-document-normal-compression.pdf' },
+      high: { jpegQuality: 0.45, baseScale: 1, filename: 'edited-document-high-compression.pdf' }
+    } as const;
+    const selected = options[level];
+    exportPdfWithOptions(selected.jpegQuality, selected.baseScale, selected.filename);
+  };
 
   const exportImagesZip = async () => {
     if (customPages.length === 0) return;
@@ -1116,14 +1124,35 @@ export default function Editor() {
           >
             <ArrowDownToLine className="w-4 h-4" /> Export PDF
           </button>
-          <button
-            onClick={exportCompressedPdf}
-            disabled={customPages.length === 0 || isProcessing}
-            className="mt-2 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Smaller file size with lower quality"
-          >
-            <ArrowDownToLine className="w-4 h-4" /> Export Compressed PDF
-          </button>
+          <div className="mt-2 rounded-lg border border-slate-800 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Compressed PDF</div>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <button
+                onClick={() => exportCompressedPdf('low')}
+                disabled={customPages.length === 0 || isProcessing}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-2 rounded-lg text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Low compression, better quality"
+              >
+                Low
+              </button>
+              <button
+                onClick={() => exportCompressedPdf('normal')}
+                disabled={customPages.length === 0 || isProcessing}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-2 rounded-lg text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Balanced compression"
+              >
+                Normal
+              </button>
+              <button
+                onClick={() => exportCompressedPdf('high')}
+                disabled={customPages.length === 0 || isProcessing}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-2 rounded-lg text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="High compression, smaller file"
+              >
+                High
+              </button>
+            </div>
+          </div>
           <button
             onClick={exportImagesZip}
             disabled={customPages.length === 0 || isProcessing}
