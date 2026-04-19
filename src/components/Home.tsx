@@ -22,7 +22,9 @@ export default function Home({ onNavigate }: { onNavigate: (id: string) => void 
       </div>
 
       <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-4 tracking-tight">
-        Your Complete<br />
+        <a href="Newtoolpdfimage-main\menu_tools.html" target="_blank">
+  orange File Covert.
+</a><br />
         <span className="bg-gradient-to-br from-indigo-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
           PDF Toolkit
         </span>
