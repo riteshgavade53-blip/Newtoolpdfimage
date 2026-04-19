@@ -21,18 +21,26 @@ export default function Home({ onNavigate }: { onNavigate: (id: string) => void 
         All tools run in your browser - No uploads
       </div>
 
-      <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-4 tracking-tight">
-  <span className="ml-3 text-White-500 animate-pulse font-bold">
-     👉 Click Here - 
-  </span><a 
+      <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-4 tracking-tight flex items-center gap-3 flex-wrap">
+
+  <span className="text-white animate-bounce font-bold">
+    👉 Click Here -
+  </span>
+
+  <a 
     href="/menu_tools.html" 
     target="_blank"
-    className="text-red-600 hover:text-red-800 transition duration-300"
+    className="relative text-red-600 font-extrabold transition duration-300 
+               hover:text-red-800 hover:scale-110"
   >
-    Orange File Convert
+    <span className="animate-pulse">
+      Orange File Convert
+    </span>
+
+    {/* Glow Effect */}
+    <span className="absolute inset-0 blur-md opacity-50 bg-red-500 rounded-lg animate-pulse -z-10"></span>
   </a>
 
-  
 </h1>
 
       <p className="text-slate-400 max-w-lg mx-auto mb-10 leading-relaxed">
