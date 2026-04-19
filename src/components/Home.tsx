@@ -22,13 +22,18 @@ export default function Home({ onNavigate }: { onNavigate: (id: string) => void 
       </div>
 
       <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-4 tracking-tight">
-        <a href="Newtoolpdfimage/public/menu_tools.html" target="_blank">
-  Orange File Convert
-</a><br/>
-        <span className="bg-gradient-to-br from-indigo-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-          PDF Toolkit
-        </span>
-      </h1>
+  <a 
+    href="/menu_tools.html" 
+    target="_blank"
+    className="text-red-600 hover:text-red-800 transition duration-300"
+  >
+    Orange File Convert
+  </a>
+
+  <span className="ml-3 text-red-500 animate-pulse font-bold">
+    👉 Click Here
+  </span>
+</h1>
 
       <p className="text-slate-400 max-w-lg mx-auto mb-10 leading-relaxed">
         Edit, convert, compress, rotate, OCR and translate PDFs - 100% private, no server uploads.
