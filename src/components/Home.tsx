@@ -23,7 +23,7 @@ export default function Home({ onNavigate }: { onNavigate: (id: string) => void 
 
       <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-4 tracking-tight">
   <span className="ml-3 text-White-500 animate-pulse font-bold">
-     👉 Click Here
+     👉 Click Here - 
   </span><a 
     href="/menu_tools.html" 
     target="_blank"
