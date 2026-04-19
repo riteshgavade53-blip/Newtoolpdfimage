@@ -22,7 +22,9 @@ export default function Home({ onNavigate }: { onNavigate: (id: string) => void 
       </div>
 
       <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-4 tracking-tight">
-  <a 
+  <span className="ml-3 text-red-500 animate-pulse font-bold">
+    👉 Click Here
+  </span><a 
     href="/menu_tools.html" 
     target="_blank"
     className="text-red-600 hover:text-red-800 transition duration-300"
@@ -30,9 +32,7 @@ export default function Home({ onNavigate }: { onNavigate: (id: string) => void 
     Orange File Convert
   </a>
 
-  <span className="ml-3 text-red-500 animate-pulse font-bold">
-    👉 Click Here
-  </span>
+  
 </h1>
 
       <p className="text-slate-400 max-w-lg mx-auto mb-10 leading-relaxed">
