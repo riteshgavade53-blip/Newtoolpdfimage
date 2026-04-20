@@ -180,11 +180,13 @@ function switchTab(n) {
 }
 
 /* ══════════════════════════════════════
-   TAB 1 — MENU CONVERTER LOGIC (new — auto-detect dine/online)
+   TAB 1 — MENU CONVERTER LOGIC (updated from menu_converter_1)
 ══════════════════════════════════════ */
 const T1_MAX_COLS = 12;
 let t1_selRow = 0, t1_selCol = 0, t1_csvData = '', t1_detectedType = 'dine', t1_converting = false;
+let t1_colMap = null;
 
+// Header keyword pattern — rows where col[2] matches these will be skipped
 const T1_HEADER_RE = /^(item[\s_]?id|item[\s_]?name|category|variation|price|description|dietary|available|goods|services|online[\s_]?display|area[\s_]?display|item[\s_]?type|__base_name|name)$/i;
 
 document.getElementById('t1_cvtBtn').addEventListener('click', t1_convert);
@@ -272,7 +274,7 @@ function t1_clearAll() {
   document.getElementById('dlBtn').style.display = 'none';
   document.getElementById('cpBtn').style.display = 'none';
   document.getElementById('msg').textContent = '';
-  t1_csvData = ''; t1_detectedType = 'dine';
+  t1_csvData = ''; t1_detectedType = 'dine'; t1_colMap = null;
   t1_updateBadge('none');
   document.getElementById('inBody').innerHTML = '';
   t1_addRows(15); t1_setSelected(0, 0);
@@ -291,7 +293,46 @@ function t1_csvEsc(v) {
   return s;
 }
 
+function t1_buildColMap(headerRow) {
+  const map = {};
+  headerRow.forEach((h, i) => {
+    const k = h.toString().trim().toLowerCase().replace(/[\s_\/]+/g, '_');
+    map[k] = i;
+  });
+  return map;
+}
+
+function t1_getCol(c, ...keys) {
+  if (t1_colMap) {
+    for (const k of keys) {
+      const norm = k.toLowerCase().replace(/[\s_\/]+/g, '_');
+      if (t1_colMap[norm] !== undefined) return c[t1_colMap[norm]] || '';
+    }
+  }
+  return null;
+}
+
 function t1_extractFields(c, type) {
+  // Try dynamic map first (if header was pasted)
+  const dynCategory  = t1_getCol(c, 'category');
+  const dynItemName  = t1_getCol(c, 'item_name', 'item name');
+  const dynVariation = t1_getCol(c, 'variation');
+  const dynPrice     = t1_getCol(c, 'price');
+  const dynDesc      = t1_getCol(c, 'description');
+  const dynDietary   = t1_getCol(c, 'dietary');
+
+  if (dynItemName !== null) {
+    return {
+      category: dynCategory || '',
+      itemName: dynItemName || '',
+      variation: dynVariation || '',
+      price: dynPrice || '0',
+      desc: dynDesc || '',
+      dietary: dynDietary || ''
+    };
+  }
+
+  // Fallback to fixed index if no header was detected
   if (type === 'online') {
     return { category: c[1], itemName: c[2], variation: c[3], price: c[7] || '0', desc: c[8], dietary: c[9] };
   }
@@ -369,12 +410,45 @@ document.addEventListener('paste', function(e) {
   e.preventDefault();
   const text = e.clipboardData.getData('text/plain');
   if (!text) return;
-  const pasteRows = text.split('\n').map(r => r.replace(/\r/g, '')).filter(r => r.trim());
-  t1_detectedType = t1_detectType(pasteRows);
+
+  // Proper TSV parser — handles quoted fields with commas, newlines inside
+  function t1_parseTSV(raw) {
+    const rows = [];
+    let row = [], field = '', inQ = false;
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i], nx = raw[i + 1];
+      if (inQ) {
+        if (ch === '"' && nx === '"') { field += '"'; i++; }
+        else if (ch === '"') { inQ = false; }
+        else { field += ch; }
+      } else {
+        if (ch === '"') { inQ = true; }
+        else if (ch === '\t') { row.push(field); field = ''; }
+        else if (ch === '\r' && nx === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; }
+        else if (ch === '\n' || ch === '\r') { row.push(field); rows.push(row); row = []; field = ''; }
+        else { field += ch; }
+      }
+    }
+    if (field || row.length) { row.push(field); rows.push(row); }
+    return rows.filter(r => r.some(c => c.trim()));
+  }
+
+  const parsed = t1_parseTSV(text);
+  const flatLines = parsed.map(r => r.join('\t'));
+  t1_detectedType = t1_detectType(flatLines);
   t1_updateBadge(t1_detectedType);
+
+  // If first row looks like a header, build column map
+  if (parsed.length > 0) {
+    const firstRow = parsed[0].map(h => h.trim().toLowerCase());
+    if (firstRow.includes('price') || firstRow.includes('item name') || firstRow.includes('item_name')) {
+      t1_colMap = t1_buildColMap(parsed[0]);
+    }
+  }
+
   const tbody = document.getElementById('inBody');
-  for (let ri = 0; ri < pasteRows.length; ri++) {
-    const rowData = pasteRows[ri].split('\t');
+  for (let ri = 0; ri < parsed.length; ri++) {
+    const rowData = parsed[ri];
     const targetRow = t1_selRow + ri;
     while (targetRow >= tbody.rows.length) t1_addRows(1);
     rowData.forEach((val, ci) => {
