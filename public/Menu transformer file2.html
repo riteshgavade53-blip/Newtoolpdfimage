@@ -28,10 +28,15 @@
   #tab2 .var-header label { margin-bottom: 0; }
   #tab2 .var-count { font-size: 12px; color: #a0aec0; }
   #tab2 .tags-grid { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f7fafc; min-height: 52px; }
-  #tab2 .tag-chip { display: inline-flex; align-items: center; gap: 6px; background: #ebf8ff; border: 1px solid #bee3f8; color: #2b6cb0; padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; }
-  #tab2 .tag-chip .del-btn { background: #fc8181; border: none; color: white; border-radius: 50%; width: 18px; height: 18px; cursor: pointer; font-size: 13px; line-height: 18px; display: flex; align-items: center; justify-content: center; padding: 0; }
-  #tab2 .tag-chip .del-btn:hover { background: #e53e3e; }
+  #tab2 .tags-grid.selected-grid { background: #f0fff4; border: 1px solid #9ae6b4; min-height: 52px; }
+  #tab2 .tag-chip { display: inline-flex; align-items: center; gap: 6px; background: #ebf8ff; border: 1px solid #bee3f8; color: #2b6cb0; padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s, border 0.15s; user-select: none; }
+  #tab2 .tag-chip:hover { background: #bee3f8; }
+  #tab2 .tag-chip.selected-chip { background: #c6f6d5; border: 1px solid #68d391; color: #22543d; cursor: pointer; }
+  #tab2 .tag-chip.selected-chip:hover { background: #9ae6b4; }
   #tab2 .hint { font-size: 12px; color: #a0aec0; margin-top: 6px; }
+  #tab2 .selected-box-wrap { margin-top: 14px; display: none; }
+  #tab2 .selected-box-wrap label { font-weight: bold; font-size: 13px; color: #276749; display: block; margin-bottom: 7px; }
+  #tab2 .empty-hint { font-size: 12px; color: #a0aec0; padding: 4px 2px; }
   #tab2 .btn { background: #4299e1; color: white; border: none; padding: 13px 28px; border-radius: 9px; font-size: 15px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 4px; }
   #tab2 .btn:hover { background: #3182ce; }
   #tab2 .btn:disabled { background: #a0aec0; cursor: not-allowed; }
@@ -66,11 +71,17 @@
 
     <div class="section var-section" id="varSection">
       <div class="var-header">
-        <label>🏷️ Detected Variations — jo nahi chahiye delete karo</label>
+        <label>🏷️ Detected Variations — click karo select karne ke liye</label>
         <span class="var-count" id="varCount"></span>
       </div>
       <div class="tags-grid" id="tagsGrid"></div>
-      <p class="hint">Jo variations bachenge unpe hi logic chalega. Baaki items as-is output me aayenge.</p>
+      <p class="hint">👆 Kisi variation pe click karo to woh neeche "Logic Apply" box me chali jayegi.</p>
+
+      <div class="selected-box-wrap" id="selectedBoxWrap">
+        <label>✅ Logic Apply Hoga In Par — <span id="selCount">0</span> selected</label>
+        <div class="tags-grid selected-grid" id="selectedGrid"></div>
+        <p class="hint">In variations pe hi transform logic chalega. Wapas click karo to upar bhejo.</p>
+      </div>
     </div>
 
     <button class="btn" id="processBtn" onclick="t2_processFile()" disabled>⚙️ Transform Karo & Download</button>
@@ -80,7 +91,8 @@
 </div>
 
 <script>
-let t2_tags = [];
+let t2_allTags = [];       // all detected variations
+let t2_selectedTags = [];  // moved to lower box — logic applies to these
 let t2_workbookData = null;
 let t2_fileType = '';
 
@@ -123,32 +135,68 @@ function t2_autoDetectVariations(raw) {
     if (filling) seen.add(filling);
     else { const m = val.match(/\(([^)]+)\)/); if (m) seen.add(m[1]); }
   });
-  t2_tags = [...seen].sort((a, b) => a.localeCompare(b));
-  t2_renderTags();
+  t2_allTags = [...seen].sort((a, b) => a.localeCompare(b));
+  t2_selectedTags = [];
+  t2_renderBothGrids();
   document.getElementById('varSection').style.display = 'block';
   t2_checkReady();
 }
 
-function t2_removeTag(val) {
-  t2_tags = t2_tags.filter(t => t !== val);
-  t2_renderTags(); t2_checkReady();
+// Move from top (unselected) to bottom (selected)
+function t2_selectTag(val) {
+  if (!t2_selectedTags.includes(val)) t2_selectedTags.push(val);
+  t2_renderBothGrids();
+  t2_checkReady();
 }
 
-function t2_renderTags() {
-  const grid = document.getElementById('tagsGrid');
-  grid.innerHTML = '';
-  t2_tags.forEach(t => {
-    const chip = document.createElement('span');
-    chip.className = 'tag-chip';
-    const safeT = t.replace(/'/g, "\\'");
-    chip.innerHTML = `${t} <button class="del-btn" onclick="t2_removeTag('${safeT}')" title="Delete">×</button>`;
-    grid.appendChild(chip);
-  });
-  document.getElementById('varCount').textContent = t2_tags.length + ' variations';
+// Move from bottom (selected) back to top (unselected)
+function t2_deselectTag(val) {
+  t2_selectedTags = t2_selectedTags.filter(t => t !== val);
+  t2_renderBothGrids();
+  t2_checkReady();
+}
+
+function t2_renderBothGrids() {
+  const unselected = t2_allTags.filter(t => !t2_selectedTags.includes(t));
+
+  // Top grid — unselected tags (click = move to selected box)
+  const topGrid = document.getElementById('tagsGrid');
+  topGrid.innerHTML = '';
+  if (unselected.length === 0) {
+    topGrid.innerHTML = '<span class="empty-hint">Sab variations select ho gaye ✅</span>';
+  } else {
+    unselected.forEach(t => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.title = 'Click to select for logic';
+      chip.textContent = t + ' ＋';
+      chip.onclick = () => t2_selectTag(t);
+      topGrid.appendChild(chip);
+    });
+  }
+  document.getElementById('varCount').textContent = unselected.length + ' remaining';
+
+  // Bottom grid — selected tags (click = move back to top)
+  const selGrid = document.getElementById('selectedGrid');
+  selGrid.innerHTML = '';
+  if (t2_selectedTags.length === 0) {
+    selGrid.innerHTML = '<span class="empty-hint">Koi variation select nahi — upar se click karke yahan bhejo</span>';
+  } else {
+    t2_selectedTags.forEach(t => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip selected-chip';
+      chip.title = 'Click to remove from selection';
+      chip.textContent = '✓ ' + t;
+      chip.onclick = () => t2_deselectTag(t);
+      selGrid.appendChild(chip);
+    });
+  }
+  document.getElementById('selCount').textContent = t2_selectedTags.length;
+  document.getElementById('selectedBoxWrap').style.display = 'block';
 }
 
 function t2_checkReady() {
-  document.getElementById('processBtn').disabled = !(t2_workbookData && t2_tags.length > 0);
+  document.getElementById('processBtn').disabled = !(t2_workbookData && t2_selectedTags.length > 0);
 }
 
 function t2_showStatus(msg, type) {
@@ -159,13 +207,14 @@ function t2_showStatus(msg, type) {
 }
 
 function t2_processFile() {
-  if (!t2_workbookData || t2_tags.length === 0) return;
+  if (!t2_workbookData || t2_selectedTags.length === 0) return;
   try {
     const raw = t2_parseFile();
     if (!raw) return;
     const header = raw[0];
     const rows = raw.slice(1).map(r => { const obj = {}; header.forEach((h, i) => obj[h] = r[i] ?? ''); return obj; });
-    const lowerTags = t2_tags.map(t => t.toLowerCase());
+    // Only apply logic to SELECTED tags
+    const lowerTags = t2_selectedTags.map(t => t.toLowerCase());
     const itemBlocks = [];
     rows.forEach(row => {
       const name = (row['Name'] || '').toString();
@@ -188,7 +237,7 @@ function t2_processFile() {
           const matchingVars = varRows.filter(r => (r['Variation_Name'] || '').toString().replace(/\s*\([^)]*\)/g, '').trim().toLowerCase() === fillingName.toLowerCase());
           if (matchingVars.length === 0) return;
           const newName = `${fillingName} ${itemName}`;
-          outputRows.push({...( baseRow || itemRows[0]), Name: newName, Item_Online_DisplayName: newName, Variation_Name: '', Price: 0});
+          outputRows.push({...(baseRow || itemRows[0]), Name: newName, Item_Online_DisplayName: newName, Variation_Name: '', Price: 0});
           matchingVars.forEach(mRow => {
             const bm = (mRow['Variation_Name'] || '').toString().match(bracketRegex);
             const varLabel = bm ? bm[1] : mRow['Variation_Name'];
@@ -196,6 +245,7 @@ function t2_processFile() {
           });
         });
       } else {
+        // Only transform if the variation is in SELECTED tags
         const anyTagMatch = varRows.some(r => lowerTags.includes((r['Variation_Name'] || '').toString().trim().toLowerCase()));
         if (!anyTagMatch) { itemRows.forEach(r => outputRows.push({...r})); }
         else { varRows.forEach(vRow => { const varName = (vRow['Variation_Name'] || '').toString().trim(); const newName = `${varName} ${itemName}`; outputRows.push({...vRow, Name: newName, Item_Online_DisplayName: newName, Variation_Name: ''}); }); }
