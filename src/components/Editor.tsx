@@ -1251,7 +1251,8 @@ export default function Editor() {
                       left: layer.x * scale,
   top: layer.y * scale,
   width: layer.type === 'text' ? (layer.w ? layer.w * scale : 'auto') : (layer.w ? layer.w * scale : '100px'),
-  height: layer.type === 'text' ? (layer.h ? layer.h * scale : 'auto') : (layer.h ? layer.h * scale : '100px'),
+  height: layer.type === 'text' ? 'auto' : (layer.h ? layer.h * scale : '100px'),
+  minHeight: layer.type === 'text' ? `${(layer.fontSize || 18) * scale * 1.4}px` : undefined,
   opacity: layer.opacity,
   color: layer.color,
   fontFamily: layer.fontFamily,
@@ -1276,20 +1277,12 @@ export default function Editor() {
   value={layer.content}
   onChange={(e) => {
     const newContent = e.target.value;
-    const el = e.target;
-    // Force textarea to shrink by resetting height to minimum, then read actual scrollHeight
-    el.style.height = '1px';
-    const actualH = Math.ceil(el.scrollHeight / scale);
-    el.style.height = '';
-    // Width from canvas measurement (unscaled)
     const tempLayer = { ...layer, content: newContent };
     const { w: measuredW } = measureTextLayerSize(tempLayer);
-    const newW = Math.max(60, measuredW);
-    const newH = Math.max(actualH, Math.ceil((layer.fontSize || 18) * 1.4));
-    updateLayer(layer.id, { content: newContent, w: newW, h: newH });
+    updateLayer(layer.id, { content: newContent, w: Math.max(60, measuredW) });
   }}
   onMouseDown={(e) => e.stopPropagation()}
-  className="bg-transparent outline-none resize-none w-full h-full block"
+  className="bg-transparent outline-none resize-none w-full block"
   style={{
     lineHeight: "1.2",
     fontFamily: layer.fontFamily,
@@ -1301,8 +1294,10 @@ export default function Editor() {
     padding: 0,
     margin: 0,
     border: 'none',
-    overflowY: 'hidden',
-    boxSizing: 'border-box',
+    overflow: 'hidden',
+    boxSizing: 'border-box' as const,
+    display: 'block',
+    width: '100%',
   }}
 />
   ) : (
