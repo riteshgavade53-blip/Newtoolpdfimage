@@ -70,8 +70,8 @@ export default function Editor() {
     rotation: 0
   });
 
-  const measureTextLayerSize = (layer: Layer) => {
-    const fontSize = layer.fontSize || 18;
+  const measureTextLayerSize = (layer: Layer, measureScale = 1) => {
+    const fontSize = (layer.fontSize || 18) * measureScale;
     const text = layer.content || '';
     const lines = text.split('\n');
     const measureCanvas = document.createElement('canvas');
@@ -83,9 +83,11 @@ export default function Editor() {
       const measuredWidth = measureCtx ? measureCtx.measureText(line || ' ').width : line.length * fontSize * 0.6;
       return Math.max(max, measuredWidth);
     }, 0);
+    const scaledW = Math.max(60 * measureScale, Math.ceil(widestLine + 12 * measureScale));
+    const scaledH = Math.max(fontSize * 1.5, Math.ceil(lines.length * fontSize * 1.2 + 8 * measureScale));
     return {
-      w: Math.max(60, Math.ceil(widestLine + 12)),
-      h: Math.max(fontSize * 1.5, Math.ceil(lines.length * fontSize * 1.2 + 12))
+      w: scaledW / measureScale,
+      h: scaledH / measureScale,
     };
   };
 
@@ -571,14 +573,7 @@ export default function Editor() {
     setLayers(prev => prev.map((layer) => {
       if (layer.id !== id) return layer;
       const nextLayer = { ...layer, ...updates };
-      if (nextLayer.type === 'text') {
-        // Only enforce min size when NOT actively changing content (e.g. resize handles)
-        if (!('content' in updates)) {
-          const minSize = measureTextLayerSize(nextLayer);
-          nextLayer.w = Math.max(nextLayer.w || 0, minSize.w);
-          nextLayer.h = Math.max(nextLayer.h || 0, minSize.h);
-        }
-      } else if (nextLayer.type === 'img') {
+      if (nextLayer.type === 'img') {
         const ratio = nextLayer.aspectRatio || layer.aspectRatio || ((layer.w && layer.h) ? layer.w / layer.h : 1);
         if (updates.w != null && updates.h == null) {
           nextLayer.h = Math.max(20, Math.round((updates.w as number) / ratio));
@@ -1250,7 +1245,7 @@ export default function Editor() {
                   style={{
                       left: layer.x * scale,
   top: layer.y * scale,
-  width: layer.type === 'text' ? (layer.w ? layer.w * scale : 'auto') : (layer.w ? layer.w * scale : '100px'),
+  width: layer.type === 'text' ? 'max-content' : (layer.w ? layer.w * scale : '100px'),
   height: layer.type === 'text' ? 'auto' : (layer.h ? layer.h * scale : '100px'),
   minHeight: layer.type === 'text' ? `${(layer.fontSize || 18) * scale * 1.4}px` : undefined,
   opacity: layer.opacity,
@@ -1278,8 +1273,8 @@ export default function Editor() {
   onChange={(e) => {
     const newContent = e.target.value;
     const tempLayer = { ...layer, content: newContent };
-    const { w: measuredW } = measureTextLayerSize(tempLayer);
-    updateLayer(layer.id, { content: newContent, w: Math.max(60, measuredW) });
+    const { w: measuredW } = measureTextLayerSize(tempLayer, scale);
+    updateLayer(layer.id, { content: newContent, w: measuredW });
   }}
   onMouseDown={(e) => e.stopPropagation()}
   className="bg-transparent outline-none resize-none w-full block"
