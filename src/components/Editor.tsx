@@ -1275,13 +1275,12 @@ export default function Editor() {
   autoFocus
   value={layer.content}
   onChange={(e) => {
-    const el = e.target;
-    // Auto-grow: reset height first, then set to scrollHeight
-    el.style.height = 'auto';
-    const newH = Math.ceil(el.scrollHeight / scale);
-    const newW = layer.w || 180;
-    updateLayer(layer.id, { content: e.target.value, h: newH, w: newW });
-    el.style.height = '';
+    const newContent = e.target.value;
+    const tempLayer = { ...layer, content: newContent };
+    const { w: measuredW, h: measuredH } = measureTextLayerSize(tempLayer);
+    const newW = Math.max(60, measuredW);
+    const newH = Math.max(measuredH, (layer.fontSize || 18) * 1.5);
+    updateLayer(layer.id, { content: newContent, w: newW, h: newH });
   }}
   onMouseDown={(e) => e.stopPropagation()}
   className="bg-transparent outline-none resize-none w-full h-full block"
