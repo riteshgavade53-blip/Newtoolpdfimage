@@ -1276,10 +1276,16 @@ export default function Editor() {
   value={layer.content}
   onChange={(e) => {
     const newContent = e.target.value;
+    const el = e.target;
+    // Force textarea to shrink by resetting height to minimum, then read actual scrollHeight
+    el.style.height = '1px';
+    const actualH = Math.ceil(el.scrollHeight / scale);
+    el.style.height = '';
+    // Width from canvas measurement (unscaled)
     const tempLayer = { ...layer, content: newContent };
-    const { w: measuredW, h: measuredH } = measureTextLayerSize(tempLayer);
+    const { w: measuredW } = measureTextLayerSize(tempLayer);
     const newW = Math.max(60, measuredW);
-    const newH = Math.max(measuredH, (layer.fontSize || 18) * 1.5);
+    const newH = Math.max(actualH, Math.ceil((layer.fontSize || 18) * 1.4));
     updateLayer(layer.id, { content: newContent, w: newW, h: newH });
   }}
   onMouseDown={(e) => e.stopPropagation()}
