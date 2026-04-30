@@ -572,9 +572,12 @@ export default function Editor() {
       if (layer.id !== id) return layer;
       const nextLayer = { ...layer, ...updates };
       if (nextLayer.type === 'text') {
-        const minSize = measureTextLayerSize(nextLayer);
-        nextLayer.w = Math.max(nextLayer.w || 0, minSize.w);
-        nextLayer.h = Math.max(nextLayer.h || 0, minSize.h);
+        // Only enforce min size when NOT actively changing content (e.g. resize handles)
+        if (!('content' in updates)) {
+          const minSize = measureTextLayerSize(nextLayer);
+          nextLayer.w = Math.max(nextLayer.w || 0, minSize.w);
+          nextLayer.h = Math.max(nextLayer.h || 0, minSize.h);
+        }
       } else if (nextLayer.type === 'img') {
         const ratio = nextLayer.aspectRatio || layer.aspectRatio || ((layer.w && layer.h) ? layer.w / layer.h : 1);
         if (updates.w != null && updates.h == null) {
@@ -1257,30 +1260,48 @@ export default function Editor() {
   fontStyle: layer.fontStyle,
   textDecoration: layer.textDecoration,
   textAlign: layer.textAlign as any,
-  backgroundColor: layer.type === 'shape' ? layer.fill : 'White',
+  backgroundColor: layer.type === 'shape' ? layer.fill : 'white',
   border: layer.type === 'shape' ? `${2 * scale}px solid ${layer.stroke}` : 'none',
   borderRadius: layer.shapeType === 'circle' ? '50%' : '0',
   minWidth: layer.type === 'text' ? '30px' : undefined,
-  padding: layer.type === 'text' ? `${2 * scale}px` : undefined,
-  display: 'inline-block',
+  padding: layer.type === 'text' ? `${2 * scale}px ${4 * scale}px` : undefined,
+  boxSizing: 'border-box' as const,
+  display: 'flex',
                   }}
                 >
                   {layer.type === 'text' && (
   editingTextId === layer.id ? (
     <textarea
+  autoFocus
   value={layer.content}
   onChange={(e) => {
-    updateLayer(layer.id, { content: e.target.value });
+    const el = e.target;
+    // Auto-grow: reset height first, then set to scrollHeight
+    el.style.height = 'auto';
+    const newH = Math.ceil(el.scrollHeight / scale);
+    const newW = layer.w || 180;
+    updateLayer(layer.id, { content: e.target.value, h: newH, w: newW });
+    el.style.height = '';
   }}
-  className="bg-transparent outline-none resize-none overflow-hidden w-full h-full"
+  onMouseDown={(e) => e.stopPropagation()}
+  className="bg-transparent outline-none resize-none w-full h-full block"
   style={{
-    height: "100%",
-    minHeight: "1em",
-    lineHeight: "1.2"
+    lineHeight: "1.2",
+    fontFamily: layer.fontFamily,
+    fontSize: layer.fontSize ? layer.fontSize * scale : undefined,
+    fontWeight: layer.fontWeight,
+    fontStyle: layer.fontStyle,
+    color: layer.color,
+    textAlign: layer.textAlign as any,
+    padding: 0,
+    margin: 0,
+    border: 'none',
+    overflowY: 'hidden',
+    boxSizing: 'border-box',
   }}
 />
   ) : (
-    <div className="whitespace-pre-wrap" style={{ lineHeight: '1.2' }}>{layer.content}</div>
+    <div className="whitespace-pre-wrap w-full h-full" style={{ lineHeight: '1.2', wordBreak: 'break-word' }}>{layer.content}</div>
   )
 )}
                   {layer.type === 'img' && (
