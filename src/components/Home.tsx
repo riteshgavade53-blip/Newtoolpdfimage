@@ -131,7 +131,7 @@ function ToolCard({
     if (!card) return;
     card.style.transform = 'perspective(800px) rotateX(0deg) rotateY(0deg) translateY(0px) scale(1)';
     card.style.boxShadow = '0 2px 16px rgba(0,0,0,0.3)';
-    card.style.borderColor = 'rgba(255,255,255,0.07)';
+    card.style.borderColor = `${tool.glow}50`;
   };
 
   const Icon = tool.icon;
@@ -143,8 +143,8 @@ function ToolCard({
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={{
-        background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        background: `linear-gradient(135deg, ${tool.glow}30 0%, ${tool.glow}15 100%)`,
+        border: `1px solid ${tool.glow}50`,
         borderRadius: '20px',
         padding: '22px 20px 18px',
         cursor: 'pointer',
