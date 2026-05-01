@@ -73,7 +73,7 @@ export default function CompressPdf() {
     <div
       className="flex h-full items-center justify-center p-6"
       style={{
-        background: 'radial-gradient(ellipse at 50% 30%, #1e1624 0%, #161016 40%, #111118 100%)',
+        background: 'radial-gradient(ellipse at 50% 20%, #1a1a1a 0%, #111111 50%, #0d0d0d 100%)',
         fontFamily: "'Inter', sans-serif",
       }}
     >
