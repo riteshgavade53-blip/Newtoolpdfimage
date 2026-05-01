@@ -73,13 +73,13 @@ export default function CompressPdf() {
     <div
       className="flex h-full items-center justify-center p-6"
       style={{
-        background: 'radial-gradient(ellipse at 50% 0%, #0f0f20 0%, #07070f 60%)',
+        background: 'radial-gradient(ellipse at 50% 30%, #1e1624 0%, #161016 40%, #111118 100%)',
         fontFamily: "'Inter', sans-serif",
       }}
     >
       {/* Bg orbs */}
-      <div style={{ position: 'fixed', top: -120, left: -100, width: 400, height: 400, borderRadius: '50%', background: 'rgba(239,68,68,0.08)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-      <div style={{ position: 'fixed', bottom: 0, right: -80, width: 350, height: 350, borderRadius: '50%', background: 'rgba(245,158,11,0.07)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'fixed', top: -120, left: -100, width: 400, height: 400, borderRadius: '50%', background: 'rgba(239,68,68,0.15)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'fixed', bottom: 0, right: -80, width: 350, height: 350, borderRadius: '50%', background: 'rgba(245,158,11,0.13)', filter: 'blur(80px)', pointerEvents: 'none' }} />
 
       <div
         style={{
