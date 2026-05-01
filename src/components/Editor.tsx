@@ -1094,8 +1094,8 @@ export default function Editor() {
                 disabled={btn.disabled}
                 className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-xl text-[11px] font-semibold transition-all disabled:opacity-40"
                 style={{
-                  background: `linear-gradient(135deg, #0d0d1a 0%, #0a0a14 60%, ${btn.color}18 100%)`,
-                  border: `1px solid ${btn.color}35`,
+                  background: '#0a0a14',
+                  border: `1px solid ${btn.color}55`,
                   color: btn.color,
                   minHeight: 64,
                 }}
@@ -1111,12 +1111,12 @@ export default function Editor() {
           <div className="flex gap-2 pt-1">
             <button onClick={copySelectedLayer} disabled={!selectedLayerId}
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+              style={{ background: '#0a0a14', border: '1px solid rgba(255,255,255,0.12)', color: '#94a3b8' }}>
               <Copy className="w-3 h-3" /> Copy
             </button>
             <button onClick={pasteCopiedLayer} disabled={!copiedLayer || customPages.length === 0}
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+              style={{ background: '#0a0a14', border: '1px solid rgba(255,255,255,0.12)', color: '#94a3b8' }}>
               <ClipboardPaste className="w-3 h-3" /> Paste
             </button>
           </div>
@@ -1144,40 +1144,40 @@ export default function Editor() {
                   <input type="color" value={selectedLayer.color}
                     onChange={e => updateLayer(selectedLayer.id, { color: e.target.value })}
                     className="w-9 h-9 rounded-lg cursor-pointer"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)' }} title="Text Color" />
+                    style={{ background: '#0a0a14', border: '1px solid rgba(255,255,255,0.15)' }} title="Text Color" />
                   <input type="number" min="6" max="300" value={selectedLayer.fontSize}
                     onChange={e => updateLayer(selectedLayer.id, { fontSize: Math.max(6, Math.min(300, Number(e.target.value) || 18)) })}
                     className="flex-1 px-3 py-2 rounded-lg text-xs outline-none text-slate-200"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(99,91,255,0.25)' }} title="Font Size" />
+                    style={{ background: '#0a0a14', border: '1px solid rgba(99,91,255,0.25)' }} title="Font Size" />
                 </div>
                 <div className="flex gap-2 items-center">
                   <button onClick={() => changeTextSize(selectedLayer.id, -2)}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-300"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>A-</button>
+                    style={{ background: '#0a0a14', border: '1px solid rgba(255,255,255,0.1)' }}>A-</button>
                   <input type="range" min="6" max="120" value={selectedLayer.fontSize || 18}
                     onChange={e => updateLayer(selectedLayer.id, { fontSize: Number(e.target.value) })}
                     className="flex-1 accent-indigo-500" />
                   <button onClick={() => changeTextSize(selectedLayer.id, 2)}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-300"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>A+</button>
+                    style={{ background: '#0a0a14', border: '1px solid rgba(255,255,255,0.1)' }}>A+</button>
                 </div>
                 <button
                   onClick={() => updateLayer(selectedLayer.id, { fontWeight: selectedLayer.fontWeight === 'bold' ? 'normal' : 'bold' })}
                   className="w-full py-2 rounded-xl text-xs font-bold transition-all"
                   style={selectedLayer.fontWeight === 'bold'
                     ? { background: 'linear-gradient(135deg, #635bff, #a78bfa)', color: '#fff', border: '1px solid #635bff', boxShadow: '0 4px 16px rgba(99,91,255,0.4)' }
-                    : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                    : { background: '#0a0a14', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
                   Bold
                 </button>
                 <div className="flex gap-2">
                   <button onClick={copySelectedLayer}
                     className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-xl text-xs font-semibold"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                    style={{ background: '#0a0a14', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
                     <Copy className="w-3 h-3" /> Copy
                   </button>
                   <button onClick={pasteCopiedLayer} disabled={!copiedLayer}
                     className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-xl text-xs font-semibold disabled:opacity-40"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                    style={{ background: '#0a0a14', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
                     <ClipboardPaste className="w-3 h-3" /> Paste
                   </button>
                 </div>
@@ -1220,7 +1220,7 @@ export default function Editor() {
                     <input type="number" min="20" max="2000" value={value}
                       onChange={e => updateLayer(selectedLayer.id, { [key]: Math.max(20, Number(e.target.value) || 150) })}
                       className="flex-1 px-3 py-1.5 rounded-lg text-xs outline-none text-slate-200"
-                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(99,91,255,0.25)' }} />
+                      style={{ background: '#0a0a14', border: '1px solid rgba(99,91,255,0.25)' }} />
                   </div>
                 ))}
                 <div className="text-[10px]" style={{ color: '#334155' }}>Click image to select, drag to move.</div>
@@ -1255,7 +1255,7 @@ export default function Editor() {
                   onClick={() => exportCompressedPdf(level)}
                   disabled={customPages.length === 0 || isProcessing}
                   className="py-2 rounded-lg text-xs font-semibold capitalize transition-all disabled:opacity-40"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(99,91,255,0.2)', color: '#a5b4fc' }}>
+                  style={{ background: '#0a0a14', border: '1px solid rgba(99,91,255,0.2)', color: '#a5b4fc' }}>
                   {level.charAt(0).toUpperCase() + level.slice(1)}
                 </button>
               ))}
