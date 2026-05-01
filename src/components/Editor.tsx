@@ -1009,219 +1009,364 @@ export default function Editor() {
   };
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 overflow-y-auto z-20">
-        <div className="p-4 border-b border-slate-800 font-bold text-sm flex items-center gap-2">
-          <Edit2 className="w-4 h-4 text-indigo-400" /> PDF & Image Editor
+    <div className="flex h-full overflow-hidden" style={{ background: '#07070f', fontFamily: "'Inter', sans-serif" }}>
+
+      {/* ── SIDEBAR ── */}
+      <div
+        className="w-72 flex flex-col shrink-0 overflow-y-auto z-20"
+        style={{
+          background: 'linear-gradient(180deg, #0f0f1a 0%, #0a0a14 100%)',
+          borderRight: '1px solid rgba(99,91,255,0.18)',
+          boxShadow: '4px 0 32px rgba(0,0,0,0.5)',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="p-4 flex items-center gap-3"
+          style={{ borderBottom: '1px solid rgba(99,91,255,0.15)' }}
+        >
+          <div
+            style={{
+              width: 34, height: 34, borderRadius: 10,
+              background: 'linear-gradient(135deg, #635bff 0%, #a78bfa 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(99,91,255,0.45)',
+            }}
+          >
+            <Edit2 className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <div className="text-sm font-bold text-white">PDF & Image Editor</div>
+            <div className="text-[10px] text-indigo-400 font-medium tracking-wide">PREMIUM EDITOR</div>
+          </div>
         </div>
-        
-        <div className="p-4 border-b border-slate-800">
-          <div 
-            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${isDragging ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700 hover:border-indigo-500 hover:bg-indigo-500/5'}`}
+
+        {/* Upload Zone */}
+        <div className="p-4" style={{ borderBottom: '1px solid rgba(99,91,255,0.12)' }}>
+          <div
+            className="rounded-xl p-5 text-center cursor-pointer transition-all"
+            style={{
+              border: isDragging ? '2px solid #635bff' : '2px dashed rgba(99,91,255,0.35)',
+              background: isDragging ? 'rgba(99,91,255,0.12)' : 'rgba(99,91,255,0.05)',
+              boxShadow: isDragging ? '0 0 24px rgba(99,91,255,0.2)' : 'none',
+            }}
             onClick={() => fileInputRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
           >
-            <FileText className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-            <div className="text-sm font-semibold mb-1 truncate px-2">{fileLabel || 'Upload PDF or Image(s)'}</div>
-            <div className="text-xs text-slate-500">Click or drag & drop (multiple supported)</div>
+            <div
+              style={{
+                width: 40, height: 40, borderRadius: 12, margin: '0 auto 10px',
+                background: 'linear-gradient(135deg, rgba(99,91,255,0.25), rgba(167,139,250,0.15))',
+                border: '1px solid rgba(99,91,255,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <FileText className="w-5 h-5" style={{ color: '#a5b4fc' }} />
+            </div>
+            <div className="text-sm font-semibold mb-1 truncate px-2 text-slate-200">
+              {fileLabel || 'Upload PDF or Image(s)'}
+            </div>
+            <div className="text-[11px]" style={{ color: '#64748b' }}>Click or drag & drop</div>
           </div>
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept=".pdf,image/*"
-            multiple
-            onChange={(e) => {
-              handleFiles(e.target.files);
-              e.currentTarget.value = '';
-            }}
-          />
+          <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,image/*" multiple
+            onChange={(e) => { handleFiles(e.target.files); e.currentTarget.value = ''; }} />
         </div>
 
-        <div className="p-4 border-b border-slate-800 space-y-3">
-          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Add Elements</div>
-          <div className="flex gap-2">
-            <button onClick={addText} disabled={customPages.length === 0} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"><Type className="w-3 h-3" /> Text</button>
-            <button onClick={() => addShape('rect')} disabled={customPages.length === 0} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"><Square className="w-3 h-3" /> Shape</button>
+        {/* Add Elements */}
+        <div className="p-4 space-y-2" style={{ borderBottom: '1px solid rgba(99,91,255,0.12)' }}>
+          <div className="text-[10px] font-bold uppercase tracking-widest mb-3"
+            style={{ color: '#635bff', letterSpacing: '0.1em' }}>
+            ✦ Add Elements
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => imgInputRef.current?.click()} disabled={customPages.length === 0} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"><ImageIcon className="w-3 h-3" /> Image</button>
-            <button onClick={addBlankPage} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1"><FilePlus className="w-3 h-3" /> Blank Page</button>
+
+          {[
+            { label: 'Text', icon: <Type className="w-3.5 h-3.5" />, onClick: addText, disabled: customPages.length === 0, color: '#635bff', glow: 'rgba(99,91,255,0.3)' },
+            { label: 'Shape', icon: <Square className="w-3.5 h-3.5" />, onClick: () => addShape('rect'), disabled: customPages.length === 0, color: '#10b981', glow: 'rgba(16,185,129,0.3)' },
+            { label: 'Image', icon: <ImageIcon className="w-3.5 h-3.5" />, onClick: () => imgInputRef.current?.click(), disabled: customPages.length === 0, color: '#f97316', glow: 'rgba(249,115,22,0.3)' },
+            { label: 'Blank Page', icon: <FilePlus className="w-3.5 h-3.5" />, onClick: addBlankPage, disabled: false, color: '#a78bfa', glow: 'rgba(167,139,250,0.3)' },
+          ].map((btn) => (
+            <button
+              key={btn.label}
+              onClick={btn.onClick}
+              disabled={btn.disabled}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
+              style={{
+                background: `linear-gradient(135deg, ${btn.color}22, ${btn.color}0f)`,
+                border: `1px solid ${btn.color}44`,
+                color: btn.color,
+              }}
+              onMouseEnter={e => { if (!btn.disabled) (e.currentTarget as HTMLElement).style.boxShadow = `0 0 16px ${btn.glow}`; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
+            >
+              {btn.icon} {btn.label}
+            </button>
+          ))}
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={copySelectedLayer} disabled={!selectedLayerId}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+              <Copy className="w-3 h-3" /> Copy
+            </button>
+            <button onClick={pasteCopiedLayer} disabled={!copiedLayer || customPages.length === 0}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+              <ClipboardPaste className="w-3 h-3" /> Paste
+            </button>
           </div>
-          <div className="flex gap-2">
-            <button onClick={copySelectedLayer} disabled={!selectedLayerId} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"><Copy className="w-3 h-3" /> Copy</button>
-            <button onClick={pasteCopiedLayer} disabled={!copiedLayer || customPages.length === 0} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"><ClipboardPaste className="w-3 h-3" /> Paste</button>
-          </div>
-          <div className="text-[10px] text-slate-500">Shortcut: Ctrl/Cmd + C, V, Z, Delete. Clipboard image paste supported.</div>
+          <div className="text-[10px] pt-1" style={{ color: '#334155' }}>Ctrl/Cmd + C, V, Z, Delete supported</div>
           <input type="file" ref={imgInputRef} className="hidden" accept="image/*" onChange={addImage} />
         </div>
 
+        {/* Properties Panel */}
         {selectedLayer && (
-          <div className="p-4 border-b border-slate-800 space-y-3 bg-indigo-500/5">
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 flex justify-between items-center">
-              Properties
-              <button onClick={() => deleteLayer(selectedLayer.id)} className="text-red-400 hover:text-red-300"><Trash2 className="w-3 h-3" /></button>
+          <div className="p-4 space-y-3" style={{ borderBottom: '1px solid rgba(99,91,255,0.12)', background: 'rgba(99,91,255,0.04)' }}>
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#635bff' }}>
+                ✦ Properties
+              </span>
+              <button onClick={() => deleteLayer(selectedLayer.id)}
+                className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg transition-all"
+                style={{ color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                <Trash2 className="w-3 h-3" /> Delete
+              </button>
             </div>
-            
+
             {selectedLayer.type === 'text' && (
               <>
                 <div className="flex gap-2">
-                  <input type="color" value={selectedLayer.color} onChange={e => updateLayer(selectedLayer.id, { color: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-slate-800 border border-slate-700" title="Text Color" />
-                  <input type="number" min="6" max="300" value={selectedLayer.fontSize} onChange={e => updateLayer(selectedLayer.id, { fontSize: Math.max(6, Math.min(300, Number(e.target.value) || 18)) })} className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 text-xs outline-none focus:border-indigo-500" title="Font Size" />
+                  <input type="color" value={selectedLayer.color}
+                    onChange={e => updateLayer(selectedLayer.id, { color: e.target.value })}
+                    className="w-9 h-9 rounded-lg cursor-pointer"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)' }} title="Text Color" />
+                  <input type="number" min="6" max="300" value={selectedLayer.fontSize}
+                    onChange={e => updateLayer(selectedLayer.id, { fontSize: Math.max(6, Math.min(300, Number(e.target.value) || 18)) })}
+                    className="flex-1 px-3 py-2 rounded-lg text-xs outline-none text-slate-200"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(99,91,255,0.25)' }} title="Font Size" />
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => changeTextSize(selectedLayer.id, -2)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-1.5 rounded-lg transition-colors">A-</button>
-                  <input type="range" min="6" max="120" value={selectedLayer.fontSize || 18} onChange={e => updateLayer(selectedLayer.id, { fontSize: Number(e.target.value) })} className="flex-[2] accent-indigo-500" />
-                  <button onClick={() => changeTextSize(selectedLayer.id, 2)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-1.5 rounded-lg transition-colors">A+</button>
+                <div className="flex gap-2 items-center">
+                  <button onClick={() => changeTextSize(selectedLayer.id, -2)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-300"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>A-</button>
+                  <input type="range" min="6" max="120" value={selectedLayer.fontSize || 18}
+                    onChange={e => updateLayer(selectedLayer.id, { fontSize: Number(e.target.value) })}
+                    className="flex-1 accent-indigo-500" />
+                  <button onClick={() => changeTextSize(selectedLayer.id, 2)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-300"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>A+</button>
                 </div>
+                <button
+                  onClick={() => updateLayer(selectedLayer.id, { fontWeight: selectedLayer.fontWeight === 'bold' ? 'normal' : 'bold' })}
+                  className="w-full py-2 rounded-xl text-xs font-bold transition-all"
+                  style={selectedLayer.fontWeight === 'bold'
+                    ? { background: 'linear-gradient(135deg, #635bff, #a78bfa)', color: '#fff', border: '1px solid #635bff', boxShadow: '0 4px 16px rgba(99,91,255,0.4)' }
+                    : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                  Bold
+                </button>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => updateLayer(selectedLayer.id, { fontWeight: selectedLayer.fontWeight === 'bold' ? 'normal' : 'bold' })}
-                    className={`flex-1 text-xs font-semibold py-1.5 rounded-lg transition-colors ${selectedLayer.fontWeight === 'bold' ? 'bg-indigo-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'}`}
-                  >
-                    Bold
+                  <button onClick={copySelectedLayer}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-xl text-xs font-semibold"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                    <Copy className="w-3 h-3" /> Copy
+                  </button>
+                  <button onClick={pasteCopiedLayer} disabled={!copiedLayer}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-xl text-xs font-semibold disabled:opacity-40"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                    <ClipboardPaste className="w-3 h-3" /> Paste
                   </button>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={copySelectedLayer} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1"><Copy className="w-3 h-3" /> Copy Text</button>
-                  <button onClick={pasteCopiedLayer} disabled={!copiedLayer} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold py-1.5 rounded-lg transition-colors flex items-center justify-center gap-1 disabled:opacity-50"><ClipboardPaste className="w-3 h-3" /> Paste Text</button>
-                </div>
-                <div className="text-xs text-slate-400 italic mt-2">Double-click to edit. Drag handles to resize from any side.</div>
+                <div className="text-[10px] italic" style={{ color: '#334155' }}>Double-click to edit. Drag handles to resize.</div>
               </>
             )}
-            
+
             {selectedLayer.type === 'shape' && (
               <>
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs text-slate-400 w-10">Fill</span>
-                  <input type="color" value={selectedLayer.fill} onChange={e => updateLayer(selectedLayer.id, { fill: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-slate-800 border border-slate-700" />
+                {[
+                  { label: 'Fill', value: selectedLayer.fill, key: 'fill' as const },
+                  { label: 'Stroke', value: selectedLayer.stroke, key: 'stroke' as const },
+                ].map(({ label, value, key }) => (
+                  <div key={key} className="flex gap-3 items-center">
+                    <span className="text-xs w-12 font-medium" style={{ color: '#64748b' }}>{label}</span>
+                    <input type="color" value={value}
+                      onChange={e => updateLayer(selectedLayer.id, { [key]: e.target.value })}
+                      className="w-9 h-9 rounded-lg cursor-pointer"
+                      style={{ border: '1px solid rgba(255,255,255,0.15)' }} />
+                  </div>
+                ))}
+                <div className="flex gap-3 items-center">
+                  <span className="text-xs w-12 font-medium" style={{ color: '#64748b' }}>Opacity</span>
+                  <input type="range" min="0" max="1" step="0.05" value={selectedLayer.opacity}
+                    onChange={e => updateLayer(selectedLayer.id, { opacity: parseFloat(e.target.value) })}
+                    className="flex-1 accent-indigo-500" />
                 </div>
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs text-slate-400 w-10">Stroke</span>
-                  <input type="color" value={selectedLayer.stroke} onChange={e => updateLayer(selectedLayer.id, { stroke: e.target.value })} className="w-8 h-8 rounded cursor-pointer bg-slate-800 border border-slate-700" />
-                </div>
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs text-slate-400 w-10">Opacity</span>
-                  <input type="range" min="0" max="1" step="0.05" value={selectedLayer.opacity} onChange={e => updateLayer(selectedLayer.id, { opacity: parseFloat(e.target.value) })} className="flex-1 accent-indigo-500" />
-                </div>
-                <div className="text-[10px] text-slate-500">For full cover, keep opacity at 1.0 and use a dark fill.</div>
+                <div className="text-[10px]" style={{ color: '#334155' }}>Keep opacity at 1.0 for full cover.</div>
               </>
             )}
 
             {selectedLayer.type === 'img' && (
               <>
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs text-slate-400 w-12">Width</span>
-                  <input
-                    type="number"
-                    min="20"
-                    max="2000"
-                    value={Math.round(selectedLayer.w || 150)}
-                    onChange={e => updateLayer(selectedLayer.id, { w: Math.max(20, Number(e.target.value) || 150) })}
-                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div className="flex gap-2 items-center">
-                  <span className="text-xs text-slate-400 w-12">Height</span>
-                  <input
-                    type="number"
-                    min="20"
-                    max="2000"
-                    value={Math.round(selectedLayer.h || 150)}
-                    onChange={e => updateLayer(selectedLayer.id, { h: Math.max(20, Number(e.target.value) || 150) })}
-                    className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <div className="text-[10px] text-slate-500">Click image to select, then drag or resize from handles.</div>
+                {[
+                  { label: 'Width', value: Math.round(selectedLayer.w || 150), key: 'w' as const },
+                  { label: 'Height', value: Math.round(selectedLayer.h || 150), key: 'h' as const },
+                ].map(({ label, value, key }) => (
+                  <div key={key} className="flex gap-3 items-center">
+                    <span className="text-xs w-12 font-medium" style={{ color: '#64748b' }}>{label}</span>
+                    <input type="number" min="20" max="2000" value={value}
+                      onChange={e => updateLayer(selectedLayer.id, { [key]: Math.max(20, Number(e.target.value) || 150) })}
+                      className="flex-1 px-3 py-1.5 rounded-lg text-xs outline-none text-slate-200"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(99,91,255,0.25)' }} />
+                  </div>
+                ))}
+                <div className="text-[10px]" style={{ color: '#334155' }}>Click image to select, drag to move.</div>
               </>
             )}
           </div>
         )}
 
-        <div className="p-4 mt-auto">
-          <button 
+        {/* Export Section */}
+        <div className="p-4 mt-auto space-y-3">
+          <div className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#635bff' }}>✦ Export</div>
+
+          <button
             onClick={exportPdf}
             disabled={customPages.length === 0 || isProcessing}
-            className="w-full bg-gradient-to-br from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+            style={{
+              background: 'linear-gradient(135deg, #635bff 0%, #a78bfa 100%)',
+              color: '#fff',
+              boxShadow: customPages.length > 0 ? '0 4px 24px rgba(99,91,255,0.5)' : 'none',
+              border: 'none',
+            }}
           >
             <ArrowDownToLine className="w-4 h-4" /> Export PDF
           </button>
-          <div className="mt-2 rounded-lg border border-slate-800 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Compressed PDF</div>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              <button
-                onClick={() => exportCompressedPdf('low')}
-                disabled={customPages.length === 0 || isProcessing}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-2 rounded-lg text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Low compression, better quality"
-              >
-                Low
-              </button>
-              <button
-                onClick={() => exportCompressedPdf('normal')}
-                disabled={customPages.length === 0 || isProcessing}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-2 rounded-lg text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Balanced compression"
-              >
-                Normal
-              </button>
-              <button
-                onClick={() => exportCompressedPdf('high')}
-                disabled={customPages.length === 0 || isProcessing}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-2 rounded-lg text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="High compression, smaller file"
-              >
-                High
-              </button>
+
+          <div className="rounded-xl p-3" style={{ border: '1px solid rgba(99,91,255,0.2)', background: 'rgba(99,91,255,0.05)' }}>
+            <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#635bff' }}>Compressed PDF</div>
+            <div className="grid grid-cols-3 gap-2">
+              {(['low', 'normal', 'high'] as const).map((level) => (
+                <button key={level}
+                  onClick={() => exportCompressedPdf(level)}
+                  disabled={customPages.length === 0 || isProcessing}
+                  className="py-2 rounded-lg text-xs font-semibold capitalize transition-all disabled:opacity-40"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(99,91,255,0.2)', color: '#a5b4fc' }}>
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </button>
+              ))}
             </div>
           </div>
+
           <button
             onClick={exportImagesZip}
             disabled={customPages.length === 0 || isProcessing}
-            className="mt-2 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Download all pages as JPG images in a ZIP"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
+            style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#6ee7b7' }}
           >
             <ArrowDownToLine className="w-4 h-4" /> Export Images ZIP
           </button>
         </div>
       </div>
 
-      {/* Main Area */}
+      {/* ── MAIN CANVAS AREA ── */}
       <div
         ref={mainScrollRef}
-        className="flex-1 overflow-auto bg-slate-950 p-6 flex flex-col items-center relative"
+        className="flex-1 overflow-auto p-6 flex flex-col items-center relative"
+        style={{ background: 'radial-gradient(ellipse at 50% 0%, #0f0f20 0%, #07070f 60%)' }}
         onWheel={handleMainWheel}
         onClick={() => { setSelectedLayerId(null); setEditingTextId(null); }}
       >
         {customPages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-500">
-            <Edit2 className="w-16 h-16 mb-4 opacity-50" />
-            <div className="font-semibold text-lg text-slate-300">Open a PDF, image, or start blank</div>
-            <div className="text-sm mt-2">Use the sidebar to upload your file</div>
-            <button onClick={addBlankPage} className="mt-6 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2 px-6 rounded-full transition-colors">Start with Blank Page</button>
+          <div className="h-full flex flex-col items-center justify-center" style={{ color: '#334155' }}>
+            <div style={{
+              width: 80, height: 80, borderRadius: 24, marginBottom: 20,
+              background: 'linear-gradient(135deg, rgba(99,91,255,0.2), rgba(167,139,250,0.1))',
+              border: '1px solid rgba(99,91,255,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 8px 32px rgba(99,91,255,0.2)',
+            }}>
+              <Edit2 className="w-9 h-9" style={{ color: '#635bff', opacity: 0.8 }} />
+            </div>
+            <div className="font-bold text-lg mb-2" style={{ color: '#e2e8f0' }}>Open a PDF, image, or start blank</div>
+            <div className="text-sm mb-8" style={{ color: '#475569' }}>Use the sidebar to upload your file</div>
+            <button onClick={addBlankPage}
+              className="px-8 py-3 rounded-2xl font-bold text-sm transition-all"
+              style={{
+                background: 'linear-gradient(135deg, #635bff, #a78bfa)',
+                color: '#fff', border: 'none',
+                boxShadow: '0 4px 24px rgba(99,91,255,0.45)',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+            >
+              Start with Blank Page
+            </button>
           </div>
         ) : (
           <>
-            <div className="mb-4 flex items-center gap-4 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 shadow-lg z-10 sticky top-0" onClick={e => e.stopPropagation()}>
-              <button onClick={() => setPageNum(Math.max(1, pageNum - 1))} disabled={pageNum <= 1} className="text-slate-400 hover:text-slate-200 disabled:opacity-30">◀</button>
-              <span className="text-xs font-semibold text-slate-300 w-16 text-center">Page {pageNum} / {customPages.length}</span>
-              <button onClick={() => setPageNum(Math.min(customPages.length, pageNum + 1))} disabled={pageNum >= customPages.length} className="text-slate-400 hover:text-slate-200 disabled:opacity-30">▶</button>
-              <div className="w-px h-4 bg-slate-700"></div>
-              <button onClick={() => rotateCurrentPage('ccw')} disabled={customPages.length === 0} className="text-slate-400 hover:text-slate-200 disabled:opacity-30" title="Rotate Left"><RotateCcw className="w-4 h-4" /></button>
-              <button onClick={() => rotateCurrentPage('cw')} disabled={customPages.length === 0} className="text-slate-400 hover:text-slate-200 disabled:opacity-30" title="Rotate Right"><RotateCw className="w-4 h-4" /></button>
-              <div className="w-px h-4 bg-slate-700"></div>
-              <button onClick={() => setScale(Math.max(0.5, scale - 0.2))} className="text-slate-400 hover:text-slate-200"><ZoomOut className="w-4 h-4" /></button>
-              <span className="text-xs font-semibold text-slate-300 w-12 text-center">{Math.round(scale * 100)}%</span>
-              <button onClick={() => setScale(Math.min(3, scale + 0.2))} className="text-slate-400 hover:text-slate-200"><ZoomIn className="w-4 h-4" /></button>
-              <div className="w-px h-4 bg-slate-700"></div>
-              <button onClick={deleteCurrentPage} disabled={customPages.length === 0} className="text-red-400 hover:text-red-300 disabled:opacity-30" title="Delete Page"><Trash2 className="w-4 h-4" /></button>
+            {/* Toolbar */}
+            <div
+              className="mb-5 flex items-center gap-3 px-5 py-2.5 rounded-2xl sticky top-0 z-10"
+              style={{
+                background: 'rgba(10,10,20,0.85)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(99,91,255,0.2)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,91,255,0.1)',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <button onClick={() => setPageNum(Math.max(1, pageNum - 1))} disabled={pageNum <= 1}
+                className="transition-all disabled:opacity-30 hover:scale-110"
+                style={{ color: '#a5b4fc', fontSize: 14 }}>◀</button>
+              <span className="text-xs font-bold px-3 py-1 rounded-lg" style={{ color: '#e2e8f0', background: 'rgba(99,91,255,0.15)', minWidth: 80, textAlign: 'center' }}>
+                Page {pageNum} / {customPages.length}
+              </span>
+              <button onClick={() => setPageNum(Math.min(customPages.length, pageNum + 1))} disabled={pageNum >= customPages.length}
+                className="transition-all disabled:opacity-30 hover:scale-110"
+                style={{ color: '#a5b4fc', fontSize: 14 }}>▶</button>
+
+              <div style={{ width: 1, height: 20, background: 'rgba(99,91,255,0.25)' }} />
+
+              <button onClick={() => rotateCurrentPage('ccw')} disabled={customPages.length === 0}
+                className="p-1.5 rounded-lg transition-all disabled:opacity-30 hover:scale-110"
+                style={{ color: '#94a3b8' }} title="Rotate Left">
+                <RotateCcw className="w-4 h-4" />
+              </button>
+              <button onClick={() => rotateCurrentPage('cw')} disabled={customPages.length === 0}
+                className="p-1.5 rounded-lg transition-all disabled:opacity-30 hover:scale-110"
+                style={{ color: '#94a3b8' }} title="Rotate Right">
+                <RotateCw className="w-4 h-4" />
+              </button>
+
+              <div style={{ width: 1, height: 20, background: 'rgba(99,91,255,0.25)' }} />
+
+              <button onClick={() => setScale(Math.max(0.5, scale - 0.2))}
+                className="p-1.5 rounded-lg transition-all hover:scale-110" style={{ color: '#94a3b8' }}>
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-bold px-2 py-1 rounded-lg" style={{ color: '#a5b4fc', background: 'rgba(99,91,255,0.1)', minWidth: 52, textAlign: 'center' }}>
+                {Math.round(scale * 100)}%
+              </span>
+              <button onClick={() => setScale(Math.min(3, scale + 0.2))}
+                className="p-1.5 rounded-lg transition-all hover:scale-110" style={{ color: '#94a3b8' }}>
+                <ZoomIn className="w-4 h-4" />
+              </button>
+
+              <div style={{ width: 1, height: 20, background: 'rgba(99,91,255,0.25)' }} />
+
+              <button onClick={deleteCurrentPage} disabled={customPages.length === 0}
+                className="p-1.5 rounded-lg transition-all disabled:opacity-30"
+                style={{ color: '#ef4444' }} title="Delete Page"
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.15)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
             
-            <div 
-              className="relative shadow-2xl bg-white border border-slate-300"
+            <div
+              className="relative bg-white"
+              style={{ boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,91,255,0.15), 0 0 60px rgba(99,91,255,0.08)' }}
               ref={overlayRef}
               onDragOver={e => e.preventDefault()}
               onDrop={handleDrop}
@@ -1241,7 +1386,7 @@ export default function Editor() {
                   onMouseDown={(e) => { e.stopPropagation(); setSelectedLayerId(layer.id); }}
                   onClick={(e) => { e.stopPropagation(); setSelectedLayerId(layer.id); }}
                   onDoubleClick={(e) => { e.stopPropagation(); if (layer.type === 'text') setEditingTextId(layer.id); }}
-                  className={`absolute ${editingTextId !== layer.id ? 'cursor-move' : 'cursor-text'} ${selectedLayerId === layer.id ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
+                  className={`absolute ${editingTextId !== layer.id ? 'cursor-move' : 'cursor-text'} ${selectedLayerId === layer.id ? 'ring-2 ring-violet-500 ring-offset-1' : ''}`}
                   style={{
                       left: layer.x * scale,
   top: layer.y * scale,
@@ -1323,8 +1468,14 @@ export default function Editor() {
                       ].map(h => (
                         <div
                           key={h.dir}
-                          className="absolute w-3 h-3 bg-indigo-500 border-2 border-white rounded-full shadow-sm"
-                          style={{ left: h.left, top: h.top, cursor: h.cursor, transform: 'translate(-50%, -50%)' }}
+                          className="absolute w-3 h-3 rounded-full shadow-lg"
+                          style={{
+                            background: 'linear-gradient(135deg, #635bff, #a78bfa)',
+                            border: '2px solid #fff',
+                            boxShadow: '0 0 8px rgba(99,91,255,0.7)',
+                            left: h.left, top: h.top, cursor: h.cursor,
+                            transform: 'translate(-50%, -50%)',
+                          }}
                           onMouseDown={(e) => startResize(e, layer.id, h.dir as any)}
                         />
                       ))}
