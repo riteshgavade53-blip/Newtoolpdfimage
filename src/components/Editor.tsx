@@ -1081,28 +1081,32 @@ export default function Editor() {
             ✦ Add Elements
           </div>
 
-          {[
-            { label: 'Text', icon: <Type className="w-3.5 h-3.5" />, onClick: addText, disabled: customPages.length === 0, color: '#635bff', glow: 'rgba(99,91,255,0.3)' },
-            { label: 'Shape', icon: <Square className="w-3.5 h-3.5" />, onClick: () => addShape('rect'), disabled: customPages.length === 0, color: '#10b981', glow: 'rgba(16,185,129,0.3)' },
-            { label: 'Image', icon: <ImageIcon className="w-3.5 h-3.5" />, onClick: () => imgInputRef.current?.click(), disabled: customPages.length === 0, color: '#f97316', glow: 'rgba(249,115,22,0.3)' },
-            { label: 'Blank Page', icon: <FilePlus className="w-3.5 h-3.5" />, onClick: addBlankPage, disabled: false, color: '#a78bfa', glow: 'rgba(167,139,250,0.3)' },
-          ].map((btn) => (
-            <button
-              key={btn.label}
-              onClick={btn.onClick}
-              disabled={btn.disabled}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
-              style={{
-                background: `linear-gradient(135deg, ${btn.color}22, ${btn.color}0f)`,
-                border: `1px solid ${btn.color}44`,
-                color: btn.color,
-              }}
-              onMouseEnter={e => { if (!btn.disabled) (e.currentTarget as HTMLElement).style.boxShadow = `0 0 16px ${btn.glow}`; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
-            >
-              {btn.icon} {btn.label}
-            </button>
-          ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {[
+              { label: 'Text', icon: <Type className="w-4 h-4" />, onClick: addText, disabled: customPages.length === 0, color: '#635bff', glow: 'rgba(99,91,255,0.35)' },
+              { label: 'Shape', icon: <Square className="w-4 h-4" />, onClick: () => addShape('rect'), disabled: customPages.length === 0, color: '#10b981', glow: 'rgba(16,185,129,0.35)' },
+              { label: 'Image', icon: <ImageIcon className="w-4 h-4" />, onClick: () => imgInputRef.current?.click(), disabled: customPages.length === 0, color: '#f97316', glow: 'rgba(249,115,22,0.35)' },
+              { label: 'Blank Page', icon: <FilePlus className="w-4 h-4" />, onClick: addBlankPage, disabled: false, color: '#a78bfa', glow: 'rgba(167,139,250,0.35)' },
+            ].map((btn) => (
+              <button
+                key={btn.label}
+                onClick={btn.onClick}
+                disabled={btn.disabled}
+                className="flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-xl text-[11px] font-semibold transition-all disabled:opacity-40"
+                style={{
+                  background: `linear-gradient(135deg, #0d0d1a 0%, #0a0a14 60%, ${btn.color}18 100%)`,
+                  border: `1px solid ${btn.color}35`,
+                  color: btn.color,
+                  minHeight: 64,
+                }}
+                onMouseEnter={e => { if (!btn.disabled) { (e.currentTarget as HTMLElement).style.boxShadow = `0 0 18px ${btn.glow}`; (e.currentTarget as HTMLElement).style.borderColor = `${btn.color}70`; } }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none'; (e.currentTarget as HTMLElement).style.borderColor = `${btn.color}35`; }}
+              >
+                {btn.icon}
+                <span>{btn.label}</span>
+              </button>
+            ))}
+          </div>
 
           <div className="flex gap-2 pt-1">
             <button onClick={copySelectedLayer} disabled={!selectedLayerId}
