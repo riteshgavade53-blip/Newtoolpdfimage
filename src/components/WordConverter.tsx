@@ -1,838 +1,527 @@
-import React, { useState, useRef } from 'react';
-import { mammoth, XLSX, jsPDF, html2canvas } from '../utils/pdfUtils';
-import { GoogleGenAI, Type } from '@google/genai';
+import { useState, useCallback, useRef, useEffect } from "react";
+import mammoth from "mammoth";
+import * as THREE from "three";
 
-/* ─────────────────────────── ICONS (inline SVG) ─────────────────────────── */
-const IconFile = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{width:'1em',height:'1em'}}>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-  </svg>
-);
-const IconTable = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{width:'1em',height:'1em'}}>
-    <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>
-  </svg>
-);
-const IconDownload = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{width:'1em',height:'1em'}}>
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-  </svg>
-);
-const IconUpload = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{width:'1em',height:'1em'}}>
-    <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
-    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
-  </svg>
-);
-const IconDoc = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{width:'1em',height:'1em'}}>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14 2 14 8 20 8"/>
-    <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
-  </svg>
-);
+interface State {
+  status: "idle" | "converting" | "done" | "error";
+  fileName: string;
+  errorMsg: string;
+  progress: number;
+}
 
-/* ─────────────────────────── STYLES ─────────────────────────── */
-const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+// ── 3D Background Canvas ────────────────────────────────────────────────────
+function ThreeBackground() {
+  const mountRef = useRef<HTMLDivElement>(null);
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
 
-  :root {
-    --bg-void: #04050a;
-    --bg-deep: #080c14;
-    --bg-panel: rgba(10, 14, 26, 0.85);
-    --bg-card: rgba(255,255,255,0.04);
-    --bg-card-hover: rgba(255,255,255,0.07);
-    --border: rgba(255,255,255,0.08);
-    --border-bright: rgba(255,255,255,0.15);
-    --gold: #f5c842;
-    --gold-dim: rgba(245,200,66,0.18);
-    --gold-glow: rgba(245,200,66,0.35);
-    --emerald: #22d98a;
-    --emerald-dim: rgba(34,217,138,0.18);
-    --emerald-glow: rgba(34,217,138,0.35);
-    --text-primary: rgba(255,255,255,0.92);
-    --text-secondary: rgba(255,255,255,0.5);
-    --text-muted: rgba(255,255,255,0.28);
-    --radius: 16px;
-    --radius-sm: 10px;
-    --shadow-deep: 0 32px 80px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.4);
-    --shadow-card: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
-    --font-head: 'Syne', sans-serif;
-    --font-mono: 'DM Mono', monospace;
-    --transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
-  }
+    const W = window.innerWidth, H = window.innerHeight;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    mount.appendChild(renderer.domElement);
 
-  .wc-root {
-    font-family: var(--font-head);
-    background: var(--bg-void);
-    color: var(--text-primary);
-    display: flex;
-    height: 100%;
-    overflow: hidden;
-    position: relative;
-  }
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
+    camera.position.set(0, 0, 30);
 
-  /* ── Animated background ── */
-  .wc-bg {
-    position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;
-  }
-  .wc-bg::before {
-    content: '';
-    position: absolute;
-    width: 900px; height: 900px;
-    background: radial-gradient(circle, rgba(245,200,66,0.06) 0%, transparent 65%);
-    top: -300px; left: -200px;
-    animation: bgPulse 8s ease-in-out infinite alternate;
-  }
-  .wc-bg::after {
-    content: '';
-    position: absolute;
-    width: 700px; height: 700px;
-    background: radial-gradient(circle, rgba(34,217,138,0.05) 0%, transparent 65%);
-    bottom: -200px; right: -100px;
-    animation: bgPulse 10s ease-in-out infinite alternate-reverse;
-  }
-  @keyframes bgPulse {
-    from { opacity: 0.6; transform: scale(1); }
-    to   { opacity: 1;   transform: scale(1.12); }
-  }
-
-  /* Grid lines */
-  .wc-grid {
-    position: absolute; inset: 0; pointer-events: none;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-    background-size: 48px 48px;
-    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
-  }
-
-  /* ─── SIDEBAR ─── */
-  .wc-sidebar {
-    position: relative; z-index: 10;
-    width: 300px; flex-shrink: 0;
-    background: var(--bg-panel);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    overflow-y: auto;
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
-  }
-  .wc-sidebar::-webkit-scrollbar { width: 4px; }
-  .wc-sidebar::-webkit-scrollbar-track { background: transparent; }
-  .wc-sidebar::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 9999px; }
-
-  /* Logo header */
-  .wc-logo {
-    padding: 22px 24px 18px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 12px;
-  }
-  .wc-logo-icon {
-    width: 38px; height: 38px;
-    background: linear-gradient(135deg, #f5c842, #e6a800);
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
-    box-shadow: 0 4px 16px rgba(245,200,66,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
-    flex-shrink: 0;
-  }
-  .wc-logo-text { line-height: 1.2; }
-  .wc-logo-title { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); }
-  .wc-logo-sub { font-size: 10px; font-weight: 500; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; font-family: var(--font-mono); margin-top: 1px; }
-
-  /* Upload zone */
-  .wc-section { padding: 20px 20px; border-bottom: 1px solid var(--border); }
-
-  .wc-drop {
-    position: relative;
-    border: 1.5px dashed var(--border-bright);
-    border-radius: var(--radius);
-    padding: 28px 16px;
-    text-align: center;
-    cursor: pointer;
-    transition: var(--transition);
-    background: var(--bg-card);
-    overflow: hidden;
-  }
-  .wc-drop::before {
-    content: '';
-    position: absolute; inset: 0;
-    background: linear-gradient(135deg, transparent 60%, rgba(245,200,66,0.04));
-    pointer-events: none;
-  }
-  .wc-drop:hover {
-    border-color: var(--gold);
-    background: var(--gold-dim);
-    transform: translateY(-1px);
-    box-shadow: 0 8px 32px rgba(245,200,66,0.12);
-  }
-  .wc-drop.dragging {
-    border-color: var(--gold);
-    background: var(--gold-dim);
-    box-shadow: 0 0 0 4px rgba(245,200,66,0.12), 0 8px 32px rgba(245,200,66,0.2);
-    transform: scale(1.01);
-  }
-  .wc-drop-icon {
-    font-size: 28px;
-    color: var(--text-muted);
-    margin-bottom: 10px;
-    display: block;
-    transition: var(--transition);
-  }
-  .wc-drop:hover .wc-drop-icon, .wc-drop.dragging .wc-drop-icon {
-    color: var(--gold);
-    transform: translateY(-3px);
-  }
-  .wc-drop-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
-  .wc-drop-sub { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
-
-  .wc-file-badge {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--gold-dim);
-    border: 1px solid rgba(245,200,66,0.25);
-    border-radius: 8px;
-    padding: 8px 12px;
-    margin-top: 12px;
-  }
-  .wc-file-badge-icon { color: var(--gold); flex-shrink: 0; }
-  .wc-file-badge-name { font-size: 11px; font-weight: 600; color: var(--gold); font-family: var(--font-mono); truncate: true; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-  /* Section label */
-  .wc-label {
-    font-size: 9px; font-weight: 700;
-    color: var(--text-muted);
-    text-transform: uppercase; letter-spacing: 0.12em;
-    font-family: var(--font-mono);
-    margin-bottom: 12px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .wc-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-  /* Mode toggle */
-  .wc-mode-toggle {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .wc-mode-btn {
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    padding: 10px 8px;
-    border-radius: var(--radius-sm);
-    border: 1.5px solid var(--border);
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 12px; font-weight: 600;
-    cursor: pointer;
-    transition: var(--transition);
-    font-family: var(--font-head);
-    letter-spacing: -0.01em;
-  }
-  .wc-mode-btn:hover { border-color: var(--border-bright); color: var(--text-secondary); background: var(--bg-card); }
-  .wc-mode-btn.pdf-active {
-    border-color: var(--gold);
-    background: var(--gold-dim);
-    color: var(--gold);
-    box-shadow: 0 0 0 3px rgba(245,200,66,0.08), inset 0 1px 0 rgba(255,255,255,0.06);
-  }
-  .wc-mode-btn.excel-active {
-    border-color: var(--emerald);
-    background: var(--emerald-dim);
-    color: var(--emerald);
-    box-shadow: 0 0 0 3px rgba(34,217,138,0.08), inset 0 1px 0 rgba(255,255,255,0.06);
-  }
-
-  /* Settings */
-  .wc-field { margin-bottom: 14px; }
-  .wc-field-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-mono); margin-bottom: 6px; }
-  .wc-select, .wc-input {
-    width: 100%;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 9px 12px;
-    font-size: 12px; font-weight: 500;
-    color: var(--text-primary);
-    outline: none;
-    transition: var(--transition);
-    font-family: var(--font-head);
-    appearance: none;
-    -webkit-appearance: none;
-  }
-  .wc-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; padding-right: 32px; cursor: pointer; }
-  .wc-select option { background: #0e1220; color: var(--text-primary); }
-  .wc-select:focus, .wc-input:focus { border-color: var(--border-bright); background: rgba(255,255,255,0.07); }
-  .pdf-mode .wc-select:focus, .pdf-mode .wc-input:focus { border-color: rgba(245,200,66,0.5); }
-  .excel-mode .wc-select:focus, .excel-mode .wc-input:focus { border-color: rgba(34,217,138,0.5); }
-
-  .wc-margins-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .wc-input { text-align: center; }
-
-  /* Tip box */
-  .wc-tip {
-    background: rgba(34,217,138,0.06);
-    border: 1px solid rgba(34,217,138,0.15);
-    border-radius: 8px;
-    padding: 12px 14px;
-    font-size: 10px; line-height: 1.7;
-    color: var(--text-secondary);
-    font-family: var(--font-mono);
-  }
-  .wc-tip strong { color: var(--emerald); }
-
-  /* Convert button */
-  .wc-convert-wrap { padding: 16px 20px 24px; margin-top: auto; }
-  .wc-convert-btn {
-    width: 100%;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    padding: 14px 20px;
-    border-radius: var(--radius);
-    border: none; outline: none;
-    font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
-    cursor: pointer;
-    transition: var(--transition);
-    position: relative;
-    overflow: hidden;
-    font-family: var(--font-head);
-  }
-  .wc-convert-btn::before {
-    content: '';
-    position: absolute; inset: 0;
-    background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 60%);
-    pointer-events: none;
-  }
-  .wc-convert-btn.pdf-btn {
-    background: linear-gradient(135deg, #c89b00, #f5c842, #d4a800);
-    color: #1a1000;
-    box-shadow: 0 4px 24px rgba(245,200,66,0.35), 0 1px 0 rgba(255,255,255,0.2) inset;
-  }
-  .wc-convert-btn.pdf-btn:hover:not(:disabled) {
-    box-shadow: 0 8px 40px rgba(245,200,66,0.55), 0 1px 0 rgba(255,255,255,0.2) inset;
-    transform: translateY(-2px);
-  }
-  .wc-convert-btn.excel-btn {
-    background: linear-gradient(135deg, #0e8a55, #22d98a, #10a060);
-    color: #001a10;
-    box-shadow: 0 4px 24px rgba(34,217,138,0.35), 0 1px 0 rgba(255,255,255,0.2) inset;
-  }
-  .wc-convert-btn.excel-btn:hover:not(:disabled) {
-    box-shadow: 0 8px 40px rgba(34,217,138,0.55), 0 1px 0 rgba(255,255,255,0.2) inset;
-    transform: translateY(-2px);
-  }
-  .wc-convert-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
-  .wc-convert-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
-
-  .wc-spinner {
-    width: 16px; height: 16px;
-    border: 2px solid rgba(0,0,0,0.2);
-    border-top-color: rgba(0,0,0,0.8);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .wc-ai-status {
-    font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);
-    margin-top: 10px; text-align: center;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-  }
-  .wc-ai-dot {
-    width: 5px; height: 5px; border-radius: 50%;
-    background: var(--gold);
-    animation: pulse 1.2s ease-in-out infinite;
-  }
-  @keyframes pulse { 0%,100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
-
-  /* ─── MAIN AREA ─── */
-  .wc-main {
-    flex: 1; overflow: auto;
-    position: relative; z-index: 10;
-    display: flex; flex-direction: column;
-    padding: 32px;
-    gap: 24px;
-  }
-  .wc-main::-webkit-scrollbar { width: 4px; }
-  .wc-main::-webkit-scrollbar-track { background: transparent; }
-  .wc-main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
-
-  /* Top bar */
-  .wc-topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    flex-shrink: 0;
-  }
-  .wc-preview-label {
-    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--text-muted);
-    font-family: var(--font-mono);
-    display: flex; align-items: center; gap: 8px;
-  }
-  .wc-preview-label-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--gold);
-    box-shadow: 0 0 8px var(--gold);
-  }
-  .wc-page-badge {
-    font-size: 11px; font-family: var(--font-mono); font-weight: 500;
-    color: var(--text-muted);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 4px 12px;
-  }
-
-  /* 3D Document preview */
-  .wc-preview-area {
-    flex: 1;
-    background:
-      radial-gradient(ellipse at 30% 20%, rgba(245,200,66,0.04) 0%, transparent 55%),
-      radial-gradient(ellipse at 70% 80%, rgba(34,217,138,0.03) 0%, transparent 55%),
-      linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    overflow: auto;
-    display: flex; align-items: flex-start; justify-content: center;
-    padding: 48px 32px;
-    position: relative;
-    box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.04);
-    min-height: 0;
-  }
-  .wc-preview-area::-webkit-scrollbar { width: 6px; }
-  .wc-preview-area::-webkit-scrollbar-track { background: transparent; }
-  .wc-preview-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
-
-  /* Paper with 3D shadow */
-  .wc-paper {
-    background: #fff;
-    border-radius: 4px;
-    padding: 64px 72px;
-    width: 100%;
-    max-width: 820px;
-    min-height: 900px;
-    color: #111;
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 13px;
-    line-height: 1.8;
-    position: relative;
-    box-shadow:
-      0 2px 0 rgba(255,255,255,0.04),
-      0 8px 32px rgba(0,0,0,0.5),
-      0 24px 72px rgba(0,0,0,0.4),
-      0 48px 120px rgba(0,0,0,0.3),
-      4px 0 20px rgba(0,0,0,0.2),
-      -4px 0 20px rgba(0,0,0,0.2);
-    transform: perspective(1200px) rotateX(0.8deg);
-    transform-origin: top center;
-    animation: paperReveal 0.5s ease-out both;
-  }
-  @keyframes paperReveal {
-    from { opacity: 0; transform: perspective(1200px) rotateX(4deg) translateY(20px); }
-    to   { opacity: 1; transform: perspective(1200px) rotateX(0.8deg) translateY(0); }
-  }
-
-  /* Paper fold corner */
-  .wc-paper::before {
-    content: '';
-    position: absolute;
-    top: 0; right: 0;
-    width: 0; height: 0;
-    border-style: solid;
-    border-width: 0 28px 28px 0;
-    border-color: transparent rgba(0,0,0,0.08) transparent transparent;
-  }
-  .wc-paper::after {
-    content: '';
-    position: absolute;
-    top: 0; right: 0;
-    width: 28px; height: 28px;
-    background: linear-gradient(225deg, #e8e8e8 50%, transparent 50%);
-    border-bottom-left-radius: 4px;
-  }
-
-  /* Empty state */
-  .wc-empty {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 100%; width: 100%;
-    gap: 16px;
-    pointer-events: none;
-  }
-  .wc-empty-icon {
-    width: 80px; height: 80px;
-    border-radius: 20px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 36px;
-    color: var(--text-muted);
-    box-shadow: var(--shadow-card);
-    animation: floatIcon 4s ease-in-out infinite;
-  }
-  @keyframes floatIcon {
-    0%,100% { transform: translateY(0); }
-    50%      { transform: translateY(-10px); }
-  }
-  .wc-empty-title {
-    font-size: 18px; font-weight: 700; letter-spacing: -0.03em;
-    color: var(--text-secondary);
-  }
-  .wc-empty-sub { font-size: 13px; color: var(--text-muted); font-family: var(--font-mono); }
-
-  /* Stats strip */
-  .wc-stats {
-    display: flex; gap: 12px; flex-shrink: 0;
-  }
-  .wc-stat {
-    flex: 1;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 14px 16px;
-    box-shadow: var(--shadow-card);
-  }
-  .wc-stat-val { font-size: 22px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; margin-bottom: 4px; }
-  .wc-stat-label { font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
-  .stat-gold { color: var(--gold); }
-  .stat-emerald { color: var(--emerald); }
-  .stat-blue { color: #60a5fa; }
-`;
-
-/* ─────────────────────────── COMPONENT ─────────────────────────── */
-export default function WordConverter() {
-  const [file, setFile] = useState<File | null>(null);
-  const [mode, setMode] = useState<'pdf' | 'excel'>('pdf');
-  const [htmlContent, setHtmlContent] = useState('');
-  const [rawText, setRawText] = useState('');
-  const [isDragging, setIsDragging] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [pageCount, setPageCount] = useState(0);
-  const [wordCount, setWordCount] = useState(0);
-  const [charCount, setCharCount] = useState(0);
-  const [aiStatus, setAiStatus] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
-
-  const [pdfSettings, setPdfSettings] = useState({
-    pageSize: 'a4',
-    orientation: 'portrait',
-    margins: { top: 25, bottom: 25, left: 25, right: 25 },
-    font: 'times'
-  });
-
-  const [excelSettings, setExcelSettings] = useState({ mode: 'all' });
-
-  const handleFile = async (newFile: File | null) => {
-    if (!newFile) return;
-    setFile(newFile);
-    setHtmlContent(''); setRawText('');
-
-    try {
-      let plainText = '';
-      if (newFile.name.toLowerCase().endsWith('.docx')) {
-        const buf = await newFile.arrayBuffer();
-        const result = await mammoth.convertToHtml({ arrayBuffer: buf });
-        setHtmlContent(result.value);
-        plainText = result.value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        setRawText(plainText);
-      } else {
-        const text = await newFile.text();
-        plainText = text;
-        setRawText(text);
-        setHtmlContent(text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>'));
-      }
-      setPageCount(Math.max(1, Math.ceil(plainText.length / 2500)));
-      setWordCount(plainText.split(/\s+/).filter(Boolean).length);
-      setCharCount(plainText.length);
-    } catch (err) { console.error(err); }
-  };
-
-  const convertWord = async () => {
-    if (!htmlContent && !rawText) return;
-    setIsProcessing(true);
-    try {
-      if (mode === 'pdf') await convertToPdf();
-      else await convertToExcel();
-    } catch (err) { console.error(err); }
-    finally { setIsProcessing(false); }
-  };
-
-  const convertToPdf = async () => {
-    const { pageSize, orientation, margins, font } = pdfSettings;
-    const fontName = font === 'times' ? 'Times New Roman' : font === 'courier' ? 'Courier New' : 'Helvetica, Arial, sans-serif';
-    const pageSizes = { a4: { p:[794,1123], l:[1123,794] }, letter: { p:[816,1056], l:[1056,816] }, legal: { p:[816,1344], l:[1344,816] } };
-    const [pgW, pgH] = orientation === 'portrait' ? pageSizes[pageSize as keyof typeof pageSizes].p : pageSizes[pageSize as keyof typeof pageSizes].l;
-    const sm = { top: isFinite(margins.top) ? margins.top : 25, right: isFinite(margins.right) ? margins.right : 25, bottom: isFinite(margins.bottom) ? margins.bottom : 25, left: isFinite(margins.left) ? margins.left : 25 };
-
-    const container = document.createElement('div');
-    container.style.cssText = `position:fixed;top:0;left:0;opacity:0;pointer-events:none;width:${pgW}px;background:white;z-index:-1;`;
-    const viewport = document.createElement('div');
-    viewport.style.cssText = `position:relative;width:${pgW}px;height:${pgH}px;overflow:hidden;background:#fff;`;
-    const pageDiv = document.createElement('div');
-    pageDiv.style.cssText = `position:absolute;top:0;left:0;width:${pgW}px;min-height:${pgH}px;background:white;padding:${sm.top}px ${sm.right}px ${sm.bottom}px ${sm.left}px;font-family:${fontName};font-size:12pt;line-height:1.6;color:#000;box-sizing:border-box;word-wrap:break-word;overflow:visible;`;
-    pageDiv.innerHTML = `<style>*{-webkit-print-color-adjust:exact;}h1{font-size:20pt;font-weight:bold;margin:16px 0 8px;}h2{font-size:16pt;font-weight:bold;margin:14px 0 6px;}h3{font-size:14pt;font-weight:bold;margin:12px 0 4px;}p{margin:0 0 8px;}ul,ol{margin:0 0 8px 24px;}table{width:100%;border-collapse:collapse;margin:10px 0;}th,td{border:1px solid #000;padding:5px 8px;font-size:10pt;}th{background:#f0f0f0;font-weight:bold;}hr{border:0;border-top:1px solid #000;margin:8px 0;}</style>${htmlContent || rawText.replace(/\n/g, '<br>')}`;
-    viewport.appendChild(pageDiv); container.appendChild(viewport); document.body.appendChild(container);
-
-    try {
-      await new Promise(r => setTimeout(r, 120));
-      const totalH = Math.max(pageDiv.scrollHeight, pgH);
-      const numPages = Math.max(1, Math.ceil(totalH / pgH));
-      const pdf = new jsPDF({ orientation: orientation as any, unit: 'px', format: [pgW, pgH], hotfixes: ['px_scaling'] });
-      for (let p = 0; p < numPages; p++) {
-        pageDiv.style.transform = `translateY(-${p * pgH}px)`;
-        await new Promise(r => requestAnimationFrame(() => r(null)));
-        const canvas = await html2canvas(viewport, { scale: 1.8, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', width: pgW, height: pgH, windowWidth: pgW, windowHeight: pgH, logging: false });
-        const imgData = canvas.toDataURL('image/jpeg', 0.92);
-        if (p > 0) pdf.addPage([pgW, pgH]);
-        pdf.addImage(imgData, 'JPEG', 0, 0, pgW, pgH, undefined, 'FAST');
-      }
-      pdf.save('converted.pdf');
-    } finally { document.body.removeChild(container); }
-  };
-
-  const convertToExcel = async () => {
-    const wb = XLSX.utils.book_new();
-    const tmpDiv = document.createElement('div');
-    tmpDiv.innerHTML = htmlContent || '<p>' + rawText.replace(/\n/g, '</p><p>') + '</p>';
-    let data: string[][] = [];
-
-    if (excelSettings.mode === 'tables') {
-      const tables = tmpDiv.querySelectorAll('table');
-      if (tables.length > 0) {
-        const aiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY;
-        const tableText = Array.from(tables).map(tbl => Array.from(tbl.querySelectorAll('tr')).map(tr => Array.from(tr.querySelectorAll('td,th')).map(td => (td.textContent||'').trim().replace(/\s+/g,' ')).join('\t')).join('\n')).join('\n\n');
-        if (aiKey && tableText.trim()) {
-          try {
-            setAiStatus('AI organizing data...');
-            const ai = new GoogleGenAI({ apiKey: aiKey });
-            const res = await ai.models.generateContent({ model:'gemini-3-flash-preview', contents:{parts:[{text:`Extract items and prices from:\n${tableText}\nReturn JSON: {items:[{name,price}]}`}]}, config:{responseMimeType:'application/json',responseSchema:{type:Type.OBJECT,properties:{items:{type:Type.ARRAY,items:{type:Type.OBJECT,properties:{name:{type:Type.STRING},price:{type:Type.STRING}}}}}}} });
-            const parsed = JSON.parse(res.text?.trim()||'{}');
-            const items = (parsed.items||[]).filter((i:any)=>i?.name||i?.price);
-            if (items.length) { const ws=XLSX.utils.aoa_to_sheet([['Item','Price'],...items.map((i:any)=>[i.name||'',i.price||''])]); XLSX.utils.book_append_sheet(wb,ws,'Items'); }
-          } catch(e){console.error(e);} finally{setAiStatus('');}
-        }
-        tables.forEach((tbl,ti)=>{const tdata:string[][]=[];tbl.querySelectorAll('tr').forEach(tr=>{const row:string[]=[];tr.querySelectorAll('td,th').forEach(cell=>row.push((cell.textContent||'').trim().replace(/\s+/g,' ')));if(row.some(c=>c))tdata.push(row);});if(tdata.length){const ws=XLSX.utils.aoa_to_sheet(tdata);XLSX.utils.book_append_sheet(wb,ws,'Table '+(ti+1));}});
-      } else { data = htmlToRows(tmpDiv); }
-    } else if (excelSettings.mode === 'all') {
-      data = htmlToRows(tmpDiv);
-    } else {
-      data = htmlToParagraphRows(tmpDiv);
+    // Floating document pages
+    const pageGroup = new THREE.Group();
+    scene.add(pageGroup);
+    const pageMat = new THREE.MeshPhongMaterial({
+      color: 0xffffff, transparent: true, opacity: 0.08,
+      side: THREE.DoubleSide, shininess: 80,
+    });
+    const pages: { mesh: THREE.Mesh; vx: number; vy: number; vz: number; rx: number; ry: number } [] = [];
+    for (let i = 0; i < 18; i++) {
+      const geo = new THREE.PlaneGeometry(
+        2.2 + Math.random() * 1.6,
+        3.0 + Math.random() * 2.0
+      );
+      const mesh = new THREE.Mesh(geo, pageMat.clone());
+      mesh.position.set(
+        (Math.random() - 0.5) * 60,
+        (Math.random() - 0.5) * 40,
+        (Math.random() - 0.5) * 30
+      );
+      mesh.rotation.set(
+        Math.random() * Math.PI,
+        Math.random() * Math.PI,
+        Math.random() * Math.PI
+      );
+      pageGroup.add(mesh);
+      pages.push({
+        mesh,
+        vx: (Math.random() - 0.5) * 0.005,
+        vy: (Math.random() - 0.5) * 0.004,
+        vz: (Math.random() - 0.5) * 0.003,
+        rx: (Math.random() - 0.5) * 0.003,
+        ry: (Math.random() - 0.5) * 0.003,
+      });
     }
 
-    if (data.length > 0) { const ws=XLSX.utils.aoa_to_sheet(data); XLSX.utils.book_append_sheet(wb,ws,'Sheet1'); }
-    XLSX.writeFile(wb, 'converted.xlsx');
+    // Particle field
+    const particleCount = 800;
+    const positions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 120;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 80;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+    }
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const pMat = new THREE.PointsMaterial({ color: 0x7c3aed, size: 0.18, transparent: true, opacity: 0.55 });
+    scene.add(new THREE.Points(pGeo, pMat));
+
+    // Torus rings
+    const rings: THREE.Mesh[] = [];
+    const ringColors = [0x7c3aed, 0x6366f1, 0xa78bfa, 0x4f46e5];
+    for (let i = 0; i < 5; i++) {
+      const geo = new THREE.TorusGeometry(6 + i * 4, 0.06, 8, 80);
+      const mat = new THREE.MeshBasicMaterial({ color: ringColors[i % 4], transparent: true, opacity: 0.15 + i * 0.04 });
+      const ring = new THREE.Mesh(geo, mat);
+      ring.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      scene.add(ring);
+      rings.push(ring);
+    }
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0x6366f1, 0.6));
+    const dLight = new THREE.DirectionalLight(0xa78bfa, 1.2);
+    dLight.position.set(10, 10, 10);
+    scene.add(dLight);
+    const pLight = new THREE.PointLight(0x7c3aed, 1.5, 60);
+    pLight.position.set(-10, 5, 15);
+    scene.add(pLight);
+
+    // Mouse parallax
+    let mx = 0, my = 0;
+    const onMouse = (e: MouseEvent) => {
+      mx = (e.clientX / window.innerWidth - 0.5) * 2;
+      my = -(e.clientY / window.innerHeight - 0.5) * 2;
+    };
+    window.addEventListener("mousemove", onMouse);
+
+    let frameId: number;
+    const clock = new THREE.Clock();
+
+    const animate = () => {
+      frameId = requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+
+      camera.position.x += (mx * 4 - camera.position.x) * 0.03;
+      camera.position.y += (my * 2 - camera.position.y) * 0.03;
+      camera.lookAt(0, 0, 0);
+
+      pages.forEach(p => {
+        p.mesh.position.x += p.vx;
+        p.mesh.position.y += p.vy;
+        p.mesh.position.z += p.vz;
+        p.mesh.rotation.x += p.rx;
+        p.mesh.rotation.y += p.ry;
+        if (Math.abs(p.mesh.position.x) > 35) p.vx *= -1;
+        if (Math.abs(p.mesh.position.y) > 25) p.vy *= -1;
+        if (Math.abs(p.mesh.position.z) > 20) p.vz *= -1;
+      });
+
+      rings.forEach((r, i) => {
+        r.rotation.x += 0.001 + i * 0.0005;
+        r.rotation.y += 0.0015 + i * 0.0003;
+      });
+
+      pLight.position.x = Math.sin(t * 0.5) * 15;
+      pLight.position.y = Math.cos(t * 0.4) * 10;
+
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    const onResize = () => {
+      const W2 = window.innerWidth, H2 = window.innerHeight;
+      camera.aspect = W2 / H2;
+      camera.updateProjectionMatrix();
+      renderer.setSize(W2, H2);
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener("mousemove", onMouse);
+      window.removeEventListener("resize", onResize);
+      renderer.dispose();
+      if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
+    };
+  }, []);
+
+  return <div ref={mountRef} style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
+}
+
+// ── Progress Ring ───────────────────────────────────────────────────────────
+function ProgressRing({ pct }: { pct: number }) {
+  const r = 44, circ = 2 * Math.PI * r;
+  return (
+    <svg width="110" height="110" style={{ transform: "rotate(-90deg)" }}>
+      <circle cx="55" cy="55" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="6" />
+      <circle cx="55" cy="55" r={r} fill="none"
+        stroke="url(#pg)" strokeWidth="6" strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={circ - (pct / 100) * circ}
+        style={{ transition: "stroke-dashoffset 0.4s ease" }}
+      />
+      <defs>
+        <linearGradient id="pg" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#6366f1" />
+          <stop offset="100%" stopColor="#a78bfa" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+// ── Main Component ──────────────────────────────────────────────────────────
+export default function WordToPdfConverter3D() {
+  const [state, setState] = useState<State>({ status: "idle", fileName: "", errorMsg: "", progress: 0 });
+  const [htmlPreview, setHtmlPreview] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const [hoverBtn, setHoverBtn] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function buildPdfHtml(body: string, name: string) {
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${name}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#e8e8e8;font-family:"Times New Roman",Georgia,serif;font-size:12pt;color:#000;padding:40px 0 60px}
+.page{width:794px;min-height:1123px;margin:0 auto;background:#fff;padding:96px 96px 96px 110px;box-shadow:0 4px 32px rgba(0,0,0,0.25);line-height:1.65}
+h1{font-size:22pt;font-weight:bold;margin:18pt 0 10pt}
+h2{font-size:16pt;font-weight:bold;margin:14pt 0 8pt}
+h3{font-size:13pt;font-weight:bold;margin:12pt 0 6pt}
+h4{font-size:12pt;font-weight:bold;margin:10pt 0 4pt}
+p{margin-bottom:8pt;text-align:justify}
+strong,b{font-weight:bold}em,i{font-style:italic}u{text-decoration:underline}s{text-decoration:line-through}
+ul{margin:6pt 0 8pt 28pt;list-style:disc}ol{margin:6pt 0 8pt 28pt;list-style:decimal}li{margin-bottom:4pt}
+table{width:100%;border-collapse:collapse;margin:10pt 0 12pt;font-size:11pt}
+th,td{border:1px solid #999;padding:6pt 8pt;vertical-align:top;text-align:left}
+th{background:#f0f0f0;font-weight:bold}
+img{max-width:100%;height:auto;margin:8pt 0}
+blockquote{border-left:3px solid #999;margin:10pt 0 10pt 20pt;padding-left:12pt;color:#555;font-style:italic}
+hr{border:none;border-top:1px solid #ccc;margin:14pt 0}
+@media print{body{background:white;padding:0}.page{width:100%;min-height:unset;padding:1.5cm 2cm 2cm 2.5cm;box-shadow:none;margin:0}}
+</style></head><body><div class="page">${body}</div></body></html>`;
+  }
+
+  const processFile = useCallback(async (file: File) => {
+    if (!file.name.match(/\.(docx|doc)$/i)) {
+      setState(s => ({ ...s, status: "error", errorMsg: "Sirf .docx ya .doc files allowed hain!" }));
+      return;
+    }
+    setState({ status: "converting", fileName: file.name, errorMsg: "", progress: 20 });
+    try {
+      const buf = await file.arrayBuffer();
+      setState(s => ({ ...s, progress: 55 }));
+      const result = await mammoth.convertToHtml({ arrayBuffer: buf }, {
+        styleMap: [
+          "p[style-name='Heading 1'] => h1:fresh",
+          "p[style-name='Heading 2'] => h2:fresh",
+          "p[style-name='Heading 3'] => h3:fresh",
+          "p[style-name='Title'] => h1.title:fresh",
+          "b => strong", "i => em", "u => u", "strike => s",
+        ],
+      });
+      if (!result.value?.trim()) throw new Error("Document empty hai ya read nahi ho saka.");
+      setState(s => ({ ...s, progress: 90 }));
+      setHtmlPreview(buildPdfHtml(result.value, file.name.replace(/\.(docx|doc)$/i, "")));
+      setState(s => ({ ...s, status: "done", progress: 100 }));
+    } catch (e: unknown) {
+      setState(s => ({ ...s, status: "error", errorMsg: e instanceof Error ? e.message : "Failed" }));
+    }
+  }, []);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setDragging(false);
+    const f = e.dataTransfer.files[0]; if (f) processFile(f);
+  }, [processFile]);
+
+  const handlePrint = () => {
+    if (!htmlPreview) return;
+    const w = window.open("", "_blank"); if (!w) return;
+    w.document.write(htmlPreview); w.document.close();
+    setTimeout(() => w.print(), 500);
   };
 
-  const htmlToRows = (container: HTMLElement): string[][] => {
-    const rows: string[][] = [];
-    container.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,td,th,div').forEach(el => {
-      if (el.closest('table') && !['TD','TH'].includes(el.tagName)) return;
-      const text = (el.textContent||'').trim().replace(/\s+/g,' ');
-      if (!text) return;
-      if (text.includes('\t')) { rows.push(text.split('\t').map(c=>c.trim()).filter(c=>c)); return; }
-      const p = text.split(/\s*[|¦]\s*/).map(c=>c.trim()).filter(c=>c);
-      if (p.length>1) { rows.push(p); return; }
-      const cm = text.match(/^([^:]{1,40}):\s+(.+)$/);
-      if (cm) { rows.push([cm[1].trim(),cm[2].trim()]); return; }
-      const dm = text.match(/^([^\-]{1,40})\s+[-–—]\s+(.+)$/);
-      if (dm) { rows.push([dm[1].trim(),dm[2].trim()]); return; }
-      const sc = text.split(/\s{2,}/).map(c=>c.trim()).filter(c=>c);
-      if (sc.length>1) { rows.push(sc); return; }
-      rows.push([text]);
-    });
-    return rows.filter(r=>r.length&&r.some(c=>c));
+  const handleDownload = () => {
+    const blob = new Blob([htmlPreview], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = state.fileName.replace(/\.(docx|doc)$/i, "") + ".html";
+    a.click(); URL.revokeObjectURL(url);
   };
 
-  const htmlToParagraphRows = (container: HTMLElement): string[][] => {
-    const rows: string[][] = [];
-    let currentHead = '';
-    if (!container.children.length) return (container.textContent||'').split('\n').filter(l=>l.trim()).map(l=>[l.trim()]);
-    Array.from(container.children).forEach(el => {
-      const text = (el.textContent||'').trim().replace(/\s+/g,' ');
-      if (!text) return;
-      const tag = el.tagName;
-      if (['H1','H2','H3','H4','H5','H6'].includes(tag)) { currentHead=text; rows.push([text,'']); }
-      else if (tag==='TABLE') { el.querySelectorAll('tr').forEach(tr=>{const r:string[]=[]; tr.querySelectorAll('td,th').forEach(cell=>r.push(cell.textContent?.trim()||'')); if(r.some(c=>c))rows.push(r);}); }
-      else if (['UL','OL'].includes(tag)) { el.querySelectorAll('li').forEach(li=>{const t=(li.textContent||'').trim(); if(t)rows.push([currentHead,t]);}); }
-      else { const cm=text.match(/^([^:]{1,40}):\s+(.+)$/); if(cm)rows.push([cm[1].trim(),cm[2].trim()]); else rows.push([currentHead||'',text]); }
-    });
-    return rows.filter(r=>r.length&&r.some(c=>c));
+  const reset = () => {
+    setState({ status: "idle", fileName: "", errorMsg: "", progress: 0 });
+    setHtmlPreview("");
   };
 
-  const hasContent = !!(htmlContent || rawText);
+  // ── Styles ────────────────────────────────────────────────────────────────
+  const cardStyle: React.CSSProperties = {
+    position: "relative", zIndex: 1,
+    background: "rgba(10,8,30,0.72)",
+    backdropFilter: "blur(28px)",
+    border: "1px solid rgba(139,92,246,0.35)",
+    borderRadius: "28px",
+    padding: "40px 36px",
+    width: "100%", maxWidth: "500px",
+    boxShadow: "0 0 60px rgba(99,102,241,0.2), 0 0 120px rgba(124,58,237,0.1), inset 0 1px 0 rgba(255,255,255,0.08)",
+  };
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: styles }} />
-      <div className="wc-root">
-        <div className="wc-bg" />
-        <div className="wc-grid" />
+    <div style={{
+      minHeight: "100vh",
+      fontFamily: "'Segoe UI', system-ui, sans-serif",
+      display: "flex", flexDirection: "column", alignItems: "center",
+      padding: "50px 20px 70px",
+      position: "relative", overflow: "hidden",
+      background: "linear-gradient(160deg, #05030f 0%, #0d0820 50%, #060315 100%)",
+    }}>
+      <ThreeBackground />
 
-        {/* ── SIDEBAR ── */}
-        <aside className={`wc-sidebar ${mode === 'pdf' ? 'pdf-mode' : 'excel-mode'}`}>
-          {/* Logo */}
-          <div className="wc-logo">
-            <div className="wc-logo-icon">📄</div>
-            <div className="wc-logo-text">
-              <div className="wc-logo-title">WordConverter</div>
-              <div className="wc-logo-sub">Pro · v2.0</div>
-            </div>
-          </div>
+      {/* Ambient glow blobs */}
+      <div style={{ position: "fixed", top: "10%", left: "15%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+      <div style={{ position: "fixed", bottom: "15%", right: "10%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,58,237,0.1) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
 
-          {/* Upload */}
-          <div className="wc-section">
-            <div className="wc-label">Document</div>
-            <div
-              className={`wc-drop ${isDragging ? 'dragging' : ''}`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={e => { e.preventDefault(); setIsDragging(false); handleFile(e.dataTransfer.files[0]); }}
-            >
-              <span className="wc-drop-icon"><IconUpload /></span>
-              <div className="wc-drop-title">{isDragging ? 'Drop it here!' : 'Drop or click to upload'}</div>
-              <div className="wc-drop-sub">.docx · .doc · .txt · .rtf</div>
-            </div>
-            <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".doc,.docx,.txt,.rtf" onChange={e => handleFile(e.target.files?.[0] || null)} />
-            {file && (
-              <div className="wc-file-badge">
-                <span className="wc-file-badge-icon"><IconDoc /></span>
-                <span className="wc-file-badge-name">{file.name}</span>
-              </div>
-            )}
-          </div>
+      {/* Header */}
+      <div style={{ textAlign: "center", marginBottom: "44px", position: "relative", zIndex: 1 }}>
+        {/* 3D floating icon */}
+        <div style={{
+          width: 90, height: 90, margin: "0 auto 20px",
+          background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+          borderRadius: "24px",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: "40px",
+          boxShadow: "0 20px 60px rgba(99,102,241,0.5), 0 0 0 1px rgba(139,92,246,0.3)",
+          transform: "perspective(400px) rotateX(8deg) rotateY(-5deg)",
+          animation: "float 4s ease-in-out infinite",
+        }}>📄</div>
 
-          {/* Mode */}
-          <div className="wc-section">
-            <div className="wc-label">Output Format</div>
-            <div className="wc-mode-toggle">
-              <button onClick={() => setMode('pdf')} className={`wc-mode-btn ${mode==='pdf' ? 'pdf-active' : ''}`}><IconFile /> PDF</button>
-              <button onClick={() => setMode('excel')} className={`wc-mode-btn ${mode==='excel' ? 'excel-active' : ''}`}><IconTable /> Excel</button>
-            </div>
-          </div>
-
-          {/* Settings */}
-          <div className="wc-section">
-            {mode === 'pdf' ? (
-              <>
-                <div className="wc-label">PDF Settings</div>
-                <div className="wc-field">
-                  <div className="wc-field-label">Page Size</div>
-                  <select className="wc-select" value={pdfSettings.pageSize} onChange={e => setPdfSettings({...pdfSettings, pageSize: e.target.value})}>
-                    <option value="a4">A4 (210 × 297 mm)</option>
-                    <option value="letter">Letter (8.5 × 11 in)</option>
-                    <option value="legal">Legal (8.5 × 14 in)</option>
-                  </select>
-                </div>
-                <div className="wc-field">
-                  <div className="wc-field-label">Orientation</div>
-                  <select className="wc-select" value={pdfSettings.orientation} onChange={e => setPdfSettings({...pdfSettings, orientation: e.target.value})}>
-                    <option value="portrait">Portrait</option>
-                    <option value="landscape">Landscape</option>
-                  </select>
-                </div>
-                <div className="wc-field">
-                  <div className="wc-field-label">Font</div>
-                  <select className="wc-select" value={pdfSettings.font} onChange={e => setPdfSettings({...pdfSettings, font: e.target.value})}>
-                    <option value="times">Times New Roman</option>
-                    <option value="helvetica">Helvetica</option>
-                    <option value="courier">Courier New</option>
-                  </select>
-                </div>
-                <div className="wc-field">
-                  <div className="wc-field-label">Margins (mm)</div>
-                  <div className="wc-margins-grid">
-                    {(['top','bottom','left','right'] as const).map(side => (
-                      <input key={side} type="number" className="wc-input" placeholder={side.charAt(0).toUpperCase()+side.slice(1)} value={pdfSettings.margins[side]} onChange={e => setPdfSettings({...pdfSettings, margins:{...pdfSettings.margins, [side]: parseInt(e.target.value)||0}})} />
-                    ))}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="wc-label">Excel Settings</div>
-                <div className="wc-field">
-                  <div className="wc-field-label">Extract Mode</div>
-                  <select className="wc-select" value={excelSettings.mode} onChange={e => setExcelSettings({...excelSettings, mode: e.target.value})}>
-                    <option value="all">All Text — Each line as row</option>
-                    <option value="tables">Tables Only — Word → Excel</option>
-                    <option value="paragraphs">Paragraphs — Heading + content</option>
-                  </select>
-                </div>
-                <div className="wc-tip">
-                  <strong>Tips:</strong><br/>
-                  · Tab-separated → auto-splits columns<br/>
-                  · "Name: Value" → 2 columns<br/>
-                  · 2+ spaces → column separator
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Convert button */}
-          <div className="wc-convert-wrap">
-            <button
-              className={`wc-convert-btn ${mode==='pdf' ? 'pdf-btn' : 'excel-btn'}`}
-              onClick={convertWord}
-              disabled={!hasContent || isProcessing}
-            >
-              {isProcessing ? <><div className="wc-spinner" /> Converting…</> : <><IconDownload /> Export to {mode === 'pdf' ? 'PDF' : 'Excel'}</>}
-            </button>
-            {aiStatus && (
-              <div className="wc-ai-status">
-                <div className="wc-ai-dot" />
-                {aiStatus}
-              </div>
-            )}
-          </div>
-        </aside>
-
-        {/* ── MAIN ── */}
-        <main className="wc-main">
-          <div className="wc-topbar">
-            <div className="wc-preview-label">
-              <div className={`wc-preview-label-dot ${mode==='excel' ? 'style="background:var(--emerald);box-shadow:0 0 8px var(--emerald)"' : ''}`} style={mode==='excel' ? {background:'var(--emerald)',boxShadow:'0 0 8px var(--emerald)'} : {}} />
-              Document Preview
-            </div>
-            {hasContent && <div className="wc-page-badge">~{pageCount} {pageCount === 1 ? 'page' : 'pages'}</div>}
-          </div>
-
-          {hasContent && (
-            <div className="wc-stats">
-              <div className="wc-stat">
-                <div className="wc-stat-val stat-gold">{pageCount}</div>
-                <div className="wc-stat-label">Pages</div>
-              </div>
-              <div className="wc-stat">
-                <div className="wc-stat-val stat-emerald">{wordCount.toLocaleString()}</div>
-                <div className="wc-stat-label">Words</div>
-              </div>
-              <div className="wc-stat">
-                <div className="wc-stat-val stat-blue">{charCount.toLocaleString()}</div>
-                <div className="wc-stat-label">Characters</div>
-              </div>
-              <div className="wc-stat">
-                <div className="wc-stat-val" style={{color:'#c084fc'}}>{file ? (file.size / 1024).toFixed(1) : '0'}</div>
-                <div className="wc-stat-label">KB</div>
-              </div>
-            </div>
-          )}
-
-          <div className="wc-preview-area">
-            {!hasContent ? (
-              <div className="wc-empty">
-                <div className="wc-empty-icon"><IconDoc /></div>
-                <div className="wc-empty-title">No document loaded</div>
-                <div className="wc-empty-sub">Upload a .docx, .doc, .txt, or .rtf file</div>
-              </div>
-            ) : (
-              <div
-                ref={previewRef}
-                className="wc-paper"
-                dangerouslySetInnerHTML={{ __html: htmlContent || rawText.replace(/\n/g, '<br>') }}
-              />
-            )}
-          </div>
-        </main>
+        <h1 style={{
+          fontSize: "38px", fontWeight: 900, margin: 0,
+          background: "linear-gradient(135deg, #e0e7ff 0%, #a78bfa 50%, #7c3aed 100%)",
+          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+          letterSpacing: "-1px",
+          textShadow: "none",
+          filter: "drop-shadow(0 0 30px rgba(167,139,250,0.4))",
+        }}>
+          Word → PDF
+        </h1>
+        <p style={{
+          color: "rgba(167,139,250,0.6)", fontSize: "14px", marginTop: "10px",
+          letterSpacing: "3px", textTransform: "uppercase", fontWeight: 500,
+        }}>
+          No AI &nbsp;·&nbsp; No Server &nbsp;·&nbsp; Pure Browser
+        </p>
       </div>
-    </>
+
+      {/* Main Card */}
+      <div style={cardStyle}>
+
+        {/* IDLE — Drop Zone */}
+        {state.status === "idle" && (
+          <div
+            onDragOver={e => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              border: `2px dashed ${dragging ? "#818cf8" : "rgba(139,92,246,0.35)"}`,
+              borderRadius: "18px", padding: "60px 24px", textAlign: "center",
+              cursor: "pointer",
+              background: dragging
+                ? "rgba(99,102,241,0.1)"
+                : "rgba(99,102,241,0.03)",
+              transition: "all 0.25s",
+              transform: dragging ? "scale(1.02)" : "scale(1)",
+            }}
+          >
+            <div style={{
+              width: 70, height: 70, margin: "0 auto 18px",
+              background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(124,58,237,0.2))",
+              borderRadius: "18px", display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "32px", border: "1px solid rgba(139,92,246,0.3)",
+              boxShadow: "0 8px 32px rgba(99,102,241,0.2)",
+            }}>☁️</div>
+
+            <p style={{ color: "#e0e7ff", fontSize: "18px", fontWeight: 700, margin: "0 0 8px" }}>
+              File yahan drop karo
+            </p>
+            <p style={{ color: "rgba(139,92,246,0.6)", fontSize: "13px", margin: "0 0 22px" }}>
+              ya click karke browse karo
+            </p>
+            <span style={{
+              background: "linear-gradient(135deg, rgba(99,102,241,0.25), rgba(124,58,237,0.25))",
+              border: "1px solid rgba(139,92,246,0.4)",
+              borderRadius: "8px", padding: "5px 16px",
+              color: "#a78bfa", fontSize: "12px", fontWeight: 600,
+              letterSpacing: "1px",
+            }}>
+              .DOCX &nbsp;&nbsp;/&nbsp;&nbsp; .DOC
+            </span>
+            <input ref={fileInputRef} type="file" accept=".docx,.doc"
+              style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ""; }} />
+          </div>
+        )}
+
+        {/* CONVERTING */}
+        {state.status === "converting" && (
+          <div style={{ textAlign: "center", padding: "30px 0" }}>
+            <div style={{ position: "relative", display: "inline-block", marginBottom: "20px" }}>
+              <ProgressRing pct={state.progress} />
+              <div style={{
+                position: "absolute", inset: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "28px", animation: "spin 2s linear infinite",
+              }}>⚙️</div>
+            </div>
+            <p style={{ color: "#e0e7ff", fontSize: "16px", fontWeight: 700, marginBottom: "6px" }}>
+              Convert ho raha hai...
+            </p>
+            <p style={{ color: "rgba(139,92,246,0.6)", fontSize: "12px" }}>{state.fileName}</p>
+          </div>
+        )}
+
+        {/* ERROR */}
+        {state.status === "error" && (
+          <div style={{ textAlign: "center", padding: "24px 0" }}>
+            <div style={{ fontSize: "50px", marginBottom: "16px", filter: "drop-shadow(0 0 20px rgba(248,113,113,0.5))" }}>❌</div>
+            <p style={{ color: "#f87171", fontWeight: 700, fontSize: "16px", marginBottom: "8px" }}>Error!</p>
+            <p style={{ color: "rgba(148,163,184,0.7)", fontSize: "13px", marginBottom: "24px" }}>{state.errorMsg}</p>
+            <button onClick={reset}
+              onMouseEnter={() => setHoverBtn("retry")}
+              onMouseLeave={() => setHoverBtn(null)}
+              style={glowBtn("#6366f1", hoverBtn === "retry")}>🔄 Dobara Try</button>
+          </div>
+        )}
+
+        {/* DONE */}
+        {state.status === "done" && (
+          <div style={{ textAlign: "center" }}>
+            <div style={{
+              fontSize: "56px", marginBottom: "14px",
+              filter: "drop-shadow(0 0 30px rgba(74,222,128,0.6))",
+              animation: "pop 0.5s cubic-bezier(0.34,1.56,0.64,1)",
+            }}>✅</div>
+            <p style={{ color: "#4ade80", fontSize: "20px", fontWeight: 900, marginBottom: "4px" }}>
+              Conversion Complete!
+            </p>
+            <p style={{ color: "rgba(139,92,246,0.6)", fontSize: "13px", marginBottom: "28px" }}>
+              {state.fileName}
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
+              <button onClick={handlePrint}
+                onMouseEnter={() => setHoverBtn("print")}
+                onMouseLeave={() => setHoverBtn(null)}
+                style={glowBtn("#10b981", hoverBtn === "print")}>
+                🖨️ &nbsp; PDF ke roop mein Save karo
+              </button>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button onClick={handleDownload}
+                  onMouseEnter={() => setHoverBtn("dl")}
+                  onMouseLeave={() => setHoverBtn(null)}
+                  style={{ ...glowBtn("#6366f1", hoverBtn === "dl"), flex: 1 }}>
+                  ⬇️ HTML Download
+                </button>
+                <button onClick={reset}
+                  onMouseEnter={() => setHoverBtn("new")}
+                  onMouseLeave={() => setHoverBtn(null)}
+                  style={{ ...glowBtn("#3f3f46", hoverBtn === "new"), flex: 1 }}>
+                  🔄 Naya File
+                </button>
+              </div>
+            </div>
+
+            <div style={{
+              background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)",
+              borderRadius: "12px", padding: "14px 16px",
+              color: "rgba(110,231,183,0.8)", fontSize: "12px", lineHeight: 1.8, textAlign: "left",
+            }}>
+              <strong style={{ color: "#6ee7b7" }}>💡 PDF save karne ka tarika:</strong><br />
+              Print button → <strong>Destination: "Save as PDF"</strong> → Save ✅
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Feature pills */}
+      {state.status === "idle" && (
+        <div style={{ display: "flex", gap: "10px", marginTop: "24px", flexWrap: "wrap", justifyContent: "center", position: "relative", zIndex: 1 }}>
+          {["⚡ Instant", "🔒 100% Private", "📊 Tables Support", "🖋️ Formatting Preserved"].map(f => (
+            <span key={f} style={{
+              background: "rgba(99,102,241,0.08)",
+              border: "1px solid rgba(139,92,246,0.2)",
+              borderRadius: "999px", padding: "7px 16px",
+              color: "rgba(167,139,250,0.7)", fontSize: "12px", fontWeight: 500,
+            }}>{f}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Preview */}
+      {state.status === "done" && htmlPreview && (
+        <div style={{
+          marginTop: "32px", width: "100%", maxWidth: "880px",
+          position: "relative", zIndex: 1,
+          border: "1px solid rgba(139,92,246,0.25)",
+          borderRadius: "20px", overflow: "hidden",
+          boxShadow: "0 0 60px rgba(99,102,241,0.15)",
+          background: "rgba(10,8,30,0.5)",
+        }}>
+          <div style={{
+            padding: "14px 22px",
+            borderBottom: "1px solid rgba(139,92,246,0.15)",
+            color: "rgba(167,139,250,0.7)", fontSize: "13px", fontWeight: 600,
+            display: "flex", alignItems: "center", gap: "8px",
+            background: "rgba(99,102,241,0.05)",
+          }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444", display: "inline-block" }} />
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#f59e0b", display: "inline-block" }} />
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+            <span style={{ marginLeft: 8 }}>👁️ Document Preview</span>
+          </div>
+          <iframe srcDoc={htmlPreview}
+            style={{ width: "100%", height: "720px", border: "none", display: "block" }}
+            title="Preview" />
+        </div>
+      )}
+
+      <style>{`
+        @keyframes float {
+          0%,100% { transform: perspective(400px) rotateX(8deg) rotateY(-5deg) translateY(0px); }
+          50% { transform: perspective(400px) rotateX(8deg) rotateY(-5deg) translateY(-10px); }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pop {
+          0% { transform: scale(0.5); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
+    </div>
   );
+}
+
+function glowBtn(color: string, hovered: boolean): React.CSSProperties {
+  return {
+    background: hovered
+      ? color
+      : `${color}22`,
+    border: `1px solid ${color}66`,
+    color: hovered ? "#fff" : "#e0e7ff",
+    borderRadius: "12px", padding: "12px 22px",
+    fontSize: "14px", fontWeight: 700, cursor: "pointer",
+    width: "100%",
+    transition: "all 0.2s",
+    boxShadow: hovered ? `0 0 24px ${color}55` : "none",
+    letterSpacing: "0.3px",
+  };
 }
