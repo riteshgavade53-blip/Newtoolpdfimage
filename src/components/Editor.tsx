@@ -1061,7 +1061,7 @@ export default function Editor() {
           </div>
           <div>
             <div className="text-sm font-bold text-white">PDF & Image Editor</div>
-            <div className="text-[10px] text-indigo-400 font-medium tracking-wide">PREMIUM EDITOR.</div>
+            <div className="text-[10px] text-indigo-400 font-medium tracking-wide">PREMIUM EDITOR</div>
           </div>
         </div>
 
@@ -1316,7 +1316,7 @@ export default function Editor() {
             }}>
               <Edit2 className="w-9 h-9" style={{ color: '#635bff', opacity: 0.8 }} />
             </div>
-            <div className="font-bold text-lg mb-2" style={{ color: '#e2e8f0' }}>Open a PDF, image, or start blank</div>
+            <div className="font-bold text-lg mb-2" style={{ color: '#e2e8f0' }}>Open a PDF, image, or start blank-</div>
             <div className="text-sm mb-8" style={{ color: '#475569' }}>Use the sidebar to upload your file</div>
             <button onClick={addBlankPage}
               className="px-8 py-3 rounded-2xl font-bold text-sm transition-all"
