@@ -1061,7 +1061,7 @@ export default function Editor() {
           </div>
           <div>
             <div className="text-sm font-bold text-white">PDF & Image Editor</div>
-            <div className="text-[10px] text-indigo-400 font-medium tracking-wide">PREMIUM EDITOR</div>
+            <div className="text-[10px] text-indigo-400 font-medium tracking-wide">PREMIUM EDITOR.</div>
           </div>
         </div>
 
