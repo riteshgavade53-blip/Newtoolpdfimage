@@ -88,6 +88,114 @@ export default function Editor() {
     return { w, h };
   };
 
+  const clampLayerSize = (value: number, min = 2, max = 4000) => {
+    const numeric = Number.isFinite(value) ? value : min;
+    return Math.max(min, Math.min(max, Math.round(numeric)));
+  };
+
+  const wrapCanvasText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
+    const result: string[] = [];
+    const sourceLines = (text || '').split('\n');
+
+    sourceLines.forEach((sourceLine) => {
+      const words = sourceLine.split(/(\s+)/).filter(part => part.length > 0);
+      if (words.length === 0) {
+        result.push('');
+        return;
+      }
+
+      let line = '';
+      words.forEach((word) => {
+        const candidate = line + word;
+        if (line && ctx.measureText(candidate).width > maxWidth) {
+          result.push(line.trimEnd());
+          line = word.trimStart();
+        } else {
+          line = candidate;
+        }
+
+        while (ctx.measureText(line).width > maxWidth && line.length > 1) {
+          let splitAt = line.length - 1;
+          while (splitAt > 1 && ctx.measureText(line.slice(0, splitAt)).width > maxWidth) {
+            splitAt--;
+          }
+          result.push(line.slice(0, splitAt));
+          line = line.slice(splitAt);
+        }
+      });
+
+      result.push(line);
+    });
+
+    return result;
+  };
+
+  const drawTextLayerOnCanvas = (ctx: CanvasRenderingContext2D, layer: Layer, pr: number) => {
+    const x = layer.x * pr;
+    const y = layer.y * pr;
+    const w = (layer.w || 140) * pr;
+    const h = (layer.h || 34) * pr;
+    const padX = 4 * pr;
+    const padY = 2 * pr;
+    const fontSize = (layer.fontSize || 18) * pr;
+    const lineHeight = fontSize * 1.4;
+
+    ctx.save();
+    ctx.fillStyle = layer.backgroundColor || '#ffffff';
+    ctx.fillRect(x, y, w, h);
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+
+    ctx.font = `${layer.fontStyle || 'normal'} ${layer.fontWeight || 'normal'} ${fontSize}px ${layer.fontFamily || 'Arial'}`;
+    ctx.fillStyle = layer.color || '#000000';
+    ctx.textBaseline = 'top';
+    const textAlign = (layer.textAlign || 'left') as CanvasTextAlign;
+    ctx.textAlign = textAlign;
+
+    const usableWidth = Math.max(1, w - padX * 2);
+    const lines = wrapCanvasText(ctx, layer.content || '', usableWidth);
+    const textX = textAlign === 'center'
+      ? x + w / 2
+      : textAlign === 'right'
+        ? x + w - padX
+        : x + padX;
+
+    lines.forEach((line, lineIdx) => {
+      const textY = y + padY + (lineIdx * lineHeight);
+      if (textY < y + h) {
+        ctx.fillText(line, textX, textY);
+      }
+    });
+    ctx.restore();
+  };
+
+  const drawShapeLayerOnCanvas = (ctx: CanvasRenderingContext2D, layer: Layer, pr: number) => {
+    const lineWidth = 2 * pr;
+    const x = layer.x * pr;
+    const y = layer.y * pr;
+    const w = (layer.w || 100) * pr;
+    const h = (layer.h || 100) * pr;
+    const inset = lineWidth / 2;
+
+    ctx.save();
+    ctx.globalAlpha = layer.opacity ?? 1;
+    ctx.fillStyle = layer.fill || '#000000';
+    ctx.strokeStyle = layer.stroke || '#000000';
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    if (layer.shapeType === 'circle') {
+      const rx = Math.max(0, (w - lineWidth) / 2);
+      const ry = Math.max(0, (h - lineWidth) / 2);
+      ctx.ellipse(x + w / 2, y + h / 2, rx, ry, 0, 0, Math.PI * 2);
+    } else {
+      ctx.rect(x + inset, y + inset, Math.max(0, w - lineWidth), Math.max(0, h - lineWidth));
+    }
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  };
+
   const createImageLayerFromFile = async (file: File, targetPage = pageNum) => {
     const imgSrc = URL.createObjectURL(file);
     const img = await loadImgEl(imgSrc);
@@ -595,6 +703,23 @@ export default function Editor() {
     updateLayer(id, { fontSize: Math.max(6, Math.min(300, current + delta)) });
   };
 
+  const resizeTextLayerWithFont = (id: number, nextW: number, nextH: number, nextX?: number, nextY?: number) => {
+    const layer = layers.find(l => l.id === id);
+    if (!layer || layer.type !== 'text') return;
+    const currentW = layer.w || 140;
+    const currentH = layer.h || 34;
+    const finalW = clampLayerSize(nextW, 20);
+    const finalH = clampLayerSize(nextH, 20);
+    const ratio = Math.max(0.2, Math.min(5, Math.min(finalW / currentW, finalH / currentH)));
+    updateLayer(id, {
+      w: finalW,
+      h: finalH,
+      x: nextX ?? layer.x,
+      y: nextY ?? layer.y,
+      fontSize: Math.max(6, Math.min(300, Math.round((layer.fontSize || 18) * ratio)))
+    });
+  };
+
   const copySelectedLayer = () => {
     const selected = layers.find(l => l.id === selectedLayerId);
     if (!selected) return;
@@ -688,40 +813,9 @@ export default function Editor() {
         
         for (const layer of pageLayers) {
           if (layer.type === 'text') {
-            const bw = (layer.w || 140) * pr;
-            const bh = (layer.h || 34) * pr;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(layer.x * pr, layer.y * pr, bw, bh);
-            ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * pr}px ${layer.fontFamily}`;
-            ctx.fillStyle = layer.color!;
-            const textAlign = (layer.textAlign || 'left') as CanvasTextAlign;
-            ctx.textAlign = textAlign;
-            const textX = textAlign === 'center'
-              ? layer.x * pr + bw / 2
-              : textAlign === 'right'
-                ? layer.x * pr + bw
-                : layer.x * pr + 4 * pr;
-            const lineHeight = layer.fontSize! * pr * 1.4;
-            const lines = (layer.content || '').split('\n');
-            lines.forEach((line, lineIdx) => {
-              ctx.fillText(line, textX, layer.y * pr + layer.fontSize! * pr + (lineIdx * lineHeight));
-            });
+            drawTextLayerOnCanvas(ctx, layer, pr);
           } else if (layer.type === 'shape') {
-            ctx.globalAlpha = layer.opacity!;
-            ctx.fillStyle = layer.fill!;
-            ctx.strokeStyle = layer.stroke!;
-            ctx.lineWidth = 2 * pr;
-            ctx.beginPath();
-            if (layer.shapeType === 'rect') {
-              ctx.rect(layer.x * pr, layer.y * pr, layer.w! * pr, layer.h! * pr);
-              ctx.fill(); ctx.stroke();
-            } else if (layer.shapeType === 'circle') {
-              const rx = (layer.w! * pr) / 2;
-              const ry = (layer.h! * pr) / 2;
-              ctx.ellipse(layer.x * pr + rx, layer.y * pr + ry, rx, ry, 0, 0, Math.PI * 2);
-              ctx.fill(); ctx.stroke();
-            }
-            ctx.globalAlpha = 1;
+            drawShapeLayerOnCanvas(ctx, layer, pr);
           } else if (layer.type === 'img' && layer.imgSrc) {
             const img = await loadImgEl(layer.imgSrc);
             ctx.drawImage(img, layer.x * pr, layer.y * pr, layer.w! * pr, layer.h! * pr);
@@ -836,40 +930,9 @@ export default function Editor() {
 
         for (const layer of pageLayers) {
           if (layer.type === 'text') {
-            const bw = (layer.w || 140) * prZip;
-            const bh = (layer.h || 34) * prZip;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(layer.x * prZip, layer.y * prZip, bw, bh);
-            ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * prZip}px ${layer.fontFamily}`;
-            ctx.fillStyle = layer.color!;
-            const textAlign = (layer.textAlign || 'left') as CanvasTextAlign;
-            ctx.textAlign = textAlign;
-            const textX = textAlign === 'center'
-              ? layer.x * prZip + bw / 2
-              : textAlign === 'right'
-                ? layer.x * prZip + bw
-                : layer.x * prZip + 4 * prZip;
-            const lineHeight = layer.fontSize! * prZip * 1.4;
-            const lines = (layer.content || '').split('\n');
-            lines.forEach((line, lineIdx) => {
-              ctx.fillText(line, textX, layer.y * prZip + layer.fontSize! * prZip + (lineIdx * lineHeight));
-            });
+            drawTextLayerOnCanvas(ctx, layer, prZip);
           } else if (layer.type === 'shape') {
-            ctx.globalAlpha = layer.opacity!;
-            ctx.fillStyle = layer.fill!;
-            ctx.strokeStyle = layer.stroke!;
-            ctx.lineWidth = 2 * prZip;
-            ctx.beginPath();
-            if (layer.shapeType === 'rect') {
-              ctx.rect(layer.x * prZip, layer.y * prZip, layer.w! * prZip, layer.h! * prZip);
-              ctx.fill(); ctx.stroke();
-            } else if (layer.shapeType === 'circle') {
-              const rx = (layer.w! * prZip) / 2;
-              const ry = (layer.h! * prZip) / 2;
-              ctx.ellipse(layer.x * prZip + rx, layer.y * prZip + ry, rx, ry, 0, 0, Math.PI * 2);
-              ctx.fill(); ctx.stroke();
-            }
-            ctx.globalAlpha = 1;
+            drawShapeLayerOnCanvas(ctx, layer, prZip);
           } else if (layer.type === 'img' && layer.imgSrc) {
             const img = await loadImgEl(layer.imgSrc);
             ctx.drawImage(img, layer.x * prZip, layer.y * prZip, layer.w! * prZip, layer.h! * prZip);
@@ -935,7 +998,6 @@ export default function Editor() {
     const autoSize = layer.type === 'text' ? measureTextLayerSize(layer) : { w: 100, h: 100 };
     const startW = layer.w || autoSize.w;
     const startH = layer.h || autoSize.h;
-    const startFontSize = layer.fontSize || 18;
     const startLX = layer.x;
     const startLY = layer.y;
     const minSize = layer.type === 'shape' ? 2 : 20;
@@ -963,19 +1025,12 @@ export default function Editor() {
       }
 
       if (layer.type === 'text') {
-        const widthRatio = newW / startW;
-        const heightRatio = newH / startH;
-        const ratio = handle === 'e' || handle === 'w'
-          ? widthRatio
-          : handle === 'n' || handle === 's'
-            ? heightRatio
-            : Math.min(widthRatio, heightRatio);
-        const newFontSize = Math.max(6, Math.round(startFontSize * ratio));
-        const measuredSize = measureTextLayerSize({ ...layer, fontSize: newFontSize });
-        const finalW = Math.max(newW, measuredSize.w);
-        const finalH = Math.max(newH, measuredSize.h);
+        const finalW = clampLayerSize(newW, minSize);
+        const finalH = clampLayerSize(newH, minSize);
         if (handle.includes('w')) newX = startLX + (startW - finalW);
         if (handle.includes('n')) newY = startLY + (startH - finalH);
+        const ratio = Math.max(0.2, Math.min(5, Math.min(finalW / startW, finalH / startH)));
+        const newFontSize = Math.max(6, Math.min(300, Math.round((layer.fontSize || 18) * ratio)));
         updateLayer(id, { w: finalW, h: finalH, x: newX, y: newY, fontSize: newFontSize });
       } else if (layer.type === 'img') {
         const ratio = layer.aspectRatio || (startW / startH) || 1;
@@ -1185,6 +1240,27 @@ export default function Editor() {
                     className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-300"
                     style={{ background: '#0a0a14', border: '1px solid rgba(255,255,255,0.1)' }}>A+</button>
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'W', value: Math.round(selectedLayer.w || 140), key: 'w' as const },
+                    { label: 'H', value: Math.round(selectedLayer.h || 34), key: 'h' as const },
+                  ].map(({ label, value, key }) => (
+                    <label key={key} className="flex items-center gap-2 rounded-lg px-2 py-1.5"
+                      style={{ background: '#0a0a14', border: '1px solid rgba(99,91,255,0.25)' }}>
+                      <span className="text-[10px] font-bold" style={{ color: '#64748b' }}>{label}</span>
+                      <input type="number" min="20" max="4000" value={value}
+                        onChange={e => {
+                          const nextValue = clampLayerSize(Number(e.target.value), 20);
+                          resizeTextLayerWithFont(
+                            selectedLayer.id,
+                            key === 'w' ? nextValue : selectedLayer.w || 140,
+                            key === 'h' ? nextValue : selectedLayer.h || 34
+                          );
+                        }}
+                        className="w-full bg-transparent text-xs outline-none text-slate-200" />
+                    </label>
+                  ))}
+                </div>
                 <button
                   onClick={() => updateLayer(selectedLayer.id, { fontWeight: selectedLayer.fontWeight === 'bold' ? 'normal' : 'bold' })}
                   className="w-full py-2 rounded-xl text-xs font-bold transition-all"
@@ -1229,7 +1305,21 @@ export default function Editor() {
                     onChange={e => updateLayer(selectedLayer.id, { opacity: parseFloat(e.target.value) })}
                     className="flex-1 accent-indigo-500" />
                 </div>
-                <div className="text-[10px]" style={{ color: '#334155' }}>Keep opacity at 1.0 for full cover.</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'W', value: Math.round(selectedLayer.w || 100), key: 'w' as const },
+                    { label: 'H', value: Math.round(selectedLayer.h || 100), key: 'h' as const },
+                  ].map(({ label, value, key }) => (
+                    <label key={key} className="flex items-center gap-2 rounded-lg px-2 py-1.5"
+                      style={{ background: '#0a0a14', border: '1px solid rgba(99,91,255,0.25)' }}>
+                      <span className="text-[10px] font-bold" style={{ color: '#64748b' }}>{label}</span>
+                      <input type="number" min="2" max="4000" value={value}
+                        onChange={e => updateLayer(selectedLayer.id, { [key]: clampLayerSize(Number(e.target.value), 2) })}
+                        className="w-full bg-transparent text-xs outline-none text-slate-200" />
+                    </label>
+                  ))}
+                </div>
+                <div className="text-[10px]" style={{ color: '#334155' }}>Drag corner/side handles or enter W/H like Canva.</div>
               </>
             )}
 
@@ -1422,7 +1512,6 @@ export default function Editor() {
   top: layer.y * scale,
   width: layer.w ? layer.w * scale : (layer.type === 'text' ? 180 * scale : 100),
   height: layer.h ? layer.h * scale : (layer.type === 'text' ? 44 * scale : 100),
-  minHeight: layer.type === 'text' ? `${(layer.fontSize || 18) * scale * 1.4}px` : undefined,
   opacity: layer.opacity,
   color: layer.color,
   fontFamily: layer.fontFamily,
@@ -1434,7 +1523,6 @@ export default function Editor() {
   backgroundColor: layer.type === 'shape' ? layer.fill : (layer.type === 'text' ? 'white' : 'transparent'),
   border: layer.type === 'shape' ? `${2 * scale}px solid ${layer.stroke}` : 'none',
   borderRadius: layer.shapeType === 'circle' ? '50%' : '0',
-  minWidth: layer.type === 'text' ? '30px' : undefined,
   padding: layer.type === 'text' ? `${2 * scale}px ${4 * scale}px` : undefined,
   boxSizing: 'border-box' as const,
   display: 'flex',
@@ -1448,12 +1536,7 @@ export default function Editor() {
   value={layer.content}
   onChange={(e) => {
     const newContent = e.target.value;
-    const tempLayer = { ...layer, content: newContent };
-    const { w: measuredW, h: measuredH } = measureTextLayerSize(tempLayer);
-    updateLayer(layer.id, { content: newContent, w: measuredW, h: measuredH });
-    // auto-resize textarea height
-    e.target.style.height = 'auto';
-    e.target.style.height = e.target.scrollHeight + 'px';
+    updateLayer(layer.id, { content: newContent });
   }}
   onMouseDown={(e) => e.stopPropagation()}
   className="bg-transparent outline-none resize-none w-full block"
@@ -1473,7 +1556,6 @@ export default function Editor() {
     display: 'block',
     width: '100%',
     height: '100%',
-    minHeight: `${(layer.fontSize || 18) * scale * 1.4}px`,
   }}
 />
   ) : (
