@@ -1,6 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import mammoth from "mammoth";
-import * as THREE from "three";
 
 interface State {
   status: "idle" | "converting" | "done" | "error";
@@ -9,153 +8,120 @@ interface State {
   progress: number;
 }
 
-// ── 3D Background Canvas ────────────────────────────────────────────────────
-function ThreeBackground() {
-  const mountRef = useRef<HTMLDivElement>(null);
+// ── CSS Animated Background (replaces Three.js) ─────────────────────────────
+function AnimatedBackground() {
+  const particles = Array.from({ length: 22 }, (_, i) => i);
+  const pages = Array.from({ length: 10 }, (_, i) => i);
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
+      <style>{`
+        @keyframes floatParticle {
+          0%   { transform: translateY(100vh) translateX(0px) scale(0); opacity: 0; }
+          10%  { opacity: 1; }
+          90%  { opacity: 0.6; }
+          100% { transform: translateY(-10vh) translateX(var(--dx)) scale(1); opacity: 0; }
+        }
+        @keyframes floatPage {
+          0%   { transform: translateY(110vh) rotate(var(--r0)); opacity: 0; }
+          10%  { opacity: 0.07; }
+          90%  { opacity: 0.05; }
+          100% { transform: translateY(-10vh) rotate(var(--r1)); opacity: 0; }
+        }
+        @keyframes orbitRing {
+          from { transform: rotateX(var(--rx)) rotateY(0deg); }
+          to   { transform: rotateX(var(--rx)) rotateY(360deg); }
+        }
+        @keyframes glowPulse {
+          0%, 100% { opacity: 0.12; transform: scale(1); }
+          50%       { opacity: 0.22; transform: scale(1.15); }
+        }
+      `}</style>
 
-  useEffect(() => {
-    const mount = mountRef.current;
-    if (!mount) return;
+      {/* Ambient glow orbs */}
+      {[
+        { top: "8%",  left: "12%",  size: 500, color: "rgba(99,102,241,0.18)",  dur: "7s"  },
+        { top: "60%", left: "70%",  size: 420, color: "rgba(124,58,237,0.14)",  dur: "9s"  },
+        { top: "35%", left: "50%",  size: 350, color: "rgba(167,139,250,0.10)", dur: "11s" },
+      ].map((o, i) => (
+        <div key={i} style={{
+          position: "absolute", top: o.top, left: o.left,
+          width: o.size, height: o.size, borderRadius: "50%",
+          background: `radial-gradient(circle, ${o.color} 0%, transparent 70%)`,
+          animation: `glowPulse ${o.dur} ease-in-out infinite`,
+          animationDelay: `${i * 2.5}s`,
+        }} />
+      ))}
 
-    const W = window.innerWidth, H = window.innerHeight;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(W, H);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    mount.appendChild(renderer.domElement);
+      {/* Floating particles */}
+      {particles.map(i => {
+        const left = (i / particles.length) * 100 + (Math.sin(i * 1.7) * 4);
+        const size = 2 + (i % 4);
+        const dur  = 8 + (i % 7) * 1.5;
+        const delay = -(i * 0.9);
+        const dx   = (Math.sin(i * 2.3) * 80).toFixed(0);
+        const colors = ["#6366f1","#7c3aed","#a78bfa","#818cf8","#4f46e5"];
+        return (
+          <div key={i} style={{
+            position: "absolute", bottom: 0,
+            left: `${left}%`,
+            width: size, height: size, borderRadius: "50%",
+            background: colors[i % colors.length],
+            opacity: 0,
+            ["--dx" as any]: `${dx}px`,
+            animation: `floatParticle ${dur}s linear infinite`,
+            animationDelay: `${delay}s`,
+            boxShadow: `0 0 ${size * 3}px ${colors[i % colors.length]}`,
+          }} />
+        );
+      })}
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
-    camera.position.set(0, 0, 30);
+      {/* Floating page silhouettes */}
+      {pages.map(i => {
+        const left = 5 + (i / pages.length) * 90;
+        const w    = 28 + (i % 4) * 10;
+        const h    = w * 1.41;
+        const dur  = 14 + (i % 6) * 2;
+        const delay = -(i * 1.8);
+        const r0   = `${(Math.sin(i) * 30).toFixed(0)}deg`;
+        const r1   = `${(Math.cos(i) * 30).toFixed(0)}deg`;
+        return (
+          <div key={i} style={{
+            position: "absolute", bottom: 0,
+            left: `${left}%`,
+            width: w, height: h,
+            border: "1px solid rgba(139,92,246,0.25)",
+            borderRadius: 3,
+            background: "rgba(99,102,241,0.04)",
+            opacity: 0,
+            ["--r0" as any]: r0,
+            ["--r1" as any]: r1,
+            animation: `floatPage ${dur}s linear infinite`,
+            animationDelay: `${delay}s`,
+          }} />
+        );
+      })}
 
-    // Floating document pages
-    const pageGroup = new THREE.Group();
-    scene.add(pageGroup);
-    const pageMat = new THREE.MeshPhongMaterial({
-      color: 0xffffff, transparent: true, opacity: 0.08,
-      side: THREE.DoubleSide, shininess: 80,
-    });
-    const pages: { mesh: THREE.Mesh; vx: number; vy: number; vz: number; rx: number; ry: number } [] = [];
-    for (let i = 0; i < 18; i++) {
-      const geo = new THREE.PlaneGeometry(
-        2.2 + Math.random() * 1.6,
-        3.0 + Math.random() * 2.0
-      );
-      const mesh = new THREE.Mesh(geo, pageMat.clone());
-      mesh.position.set(
-        (Math.random() - 0.5) * 60,
-        (Math.random() - 0.5) * 40,
-        (Math.random() - 0.5) * 30
-      );
-      mesh.rotation.set(
-        Math.random() * Math.PI,
-        Math.random() * Math.PI,
-        Math.random() * Math.PI
-      );
-      pageGroup.add(mesh);
-      pages.push({
-        mesh,
-        vx: (Math.random() - 0.5) * 0.005,
-        vy: (Math.random() - 0.5) * 0.004,
-        vz: (Math.random() - 0.5) * 0.003,
-        rx: (Math.random() - 0.5) * 0.003,
-        ry: (Math.random() - 0.5) * 0.003,
-      });
-    }
-
-    // Particle field
-    const particleCount = 800;
-    const positions = new Float32Array(particleCount * 3);
-    for (let i = 0; i < particleCount; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 120;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 80;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 60;
-    }
-    const pGeo = new THREE.BufferGeometry();
-    pGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    const pMat = new THREE.PointsMaterial({ color: 0x7c3aed, size: 0.18, transparent: true, opacity: 0.55 });
-    scene.add(new THREE.Points(pGeo, pMat));
-
-    // Torus rings
-    const rings: THREE.Mesh[] = [];
-    const ringColors = [0x7c3aed, 0x6366f1, 0xa78bfa, 0x4f46e5];
-    for (let i = 0; i < 5; i++) {
-      const geo = new THREE.TorusGeometry(6 + i * 4, 0.06, 8, 80);
-      const mat = new THREE.MeshBasicMaterial({ color: ringColors[i % 4], transparent: true, opacity: 0.15 + i * 0.04 });
-      const ring = new THREE.Mesh(geo, mat);
-      ring.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-      scene.add(ring);
-      rings.push(ring);
-    }
-
-    // Lights
-    scene.add(new THREE.AmbientLight(0x6366f1, 0.6));
-    const dLight = new THREE.DirectionalLight(0xa78bfa, 1.2);
-    dLight.position.set(10, 10, 10);
-    scene.add(dLight);
-    const pLight = new THREE.PointLight(0x7c3aed, 1.5, 60);
-    pLight.position.set(-10, 5, 15);
-    scene.add(pLight);
-
-    // Mouse parallax
-    let mx = 0, my = 0;
-    const onMouse = (e: MouseEvent) => {
-      mx = (e.clientX / window.innerWidth - 0.5) * 2;
-      my = -(e.clientY / window.innerHeight - 0.5) * 2;
-    };
-    window.addEventListener("mousemove", onMouse);
-
-    let frameId: number;
-    const clock = new THREE.Clock();
-
-    const animate = () => {
-      frameId = requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
-
-      camera.position.x += (mx * 4 - camera.position.x) * 0.03;
-      camera.position.y += (my * 2 - camera.position.y) * 0.03;
-      camera.lookAt(0, 0, 0);
-
-      pages.forEach(p => {
-        p.mesh.position.x += p.vx;
-        p.mesh.position.y += p.vy;
-        p.mesh.position.z += p.vz;
-        p.mesh.rotation.x += p.rx;
-        p.mesh.rotation.y += p.ry;
-        if (Math.abs(p.mesh.position.x) > 35) p.vx *= -1;
-        if (Math.abs(p.mesh.position.y) > 25) p.vy *= -1;
-        if (Math.abs(p.mesh.position.z) > 20) p.vz *= -1;
-      });
-
-      rings.forEach((r, i) => {
-        r.rotation.x += 0.001 + i * 0.0005;
-        r.rotation.y += 0.0015 + i * 0.0003;
-      });
-
-      pLight.position.x = Math.sin(t * 0.5) * 15;
-      pLight.position.y = Math.cos(t * 0.4) * 10;
-
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    const onResize = () => {
-      const W2 = window.innerWidth, H2 = window.innerHeight;
-      camera.aspect = W2 / H2;
-      camera.updateProjectionMatrix();
-      renderer.setSize(W2, H2);
-    };
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      cancelAnimationFrame(frameId);
-      window.removeEventListener("mousemove", onMouse);
-      window.removeEventListener("resize", onResize);
-      renderer.dispose();
-      if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
-    };
-  }, []);
-
-  return <div ref={mountRef} style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
+      {/* Torus-like rings (CSS perspective) */}
+      {[
+        { size: 260, color: "#7c3aed", dur: "18s", top: "30%", left: "20%", rx: "60deg"  },
+        { size: 340, color: "#6366f1", dur: "24s", top: "55%", left: "65%", rx: "45deg"  },
+        { size: 200, color: "#a78bfa", dur: "15s", top: "15%", left: "75%", rx: "70deg"  },
+      ].map((r, i) => (
+        <div key={i} style={{
+          position: "absolute",
+          top: r.top, left: r.left,
+          width: r.size, height: r.size,
+          borderRadius: "50%",
+          border: `1.5px solid ${r.color}`,
+          opacity: 0.13,
+          ["--rx" as any]: r.rx,
+          animation: `orbitRing ${r.dur} linear infinite`,
+          animationDelay: `${i * -5}s`,
+          transform: `perspective(600px) rotateX(${r.rx})`,
+        }} />
+      ))}
+    </div>
+  );
 }
 
 // ── Progress Ring ───────────────────────────────────────────────────────────
@@ -285,7 +251,7 @@ hr{border:none;border-top:1px solid #ccc;margin:14pt 0}
       position: "relative", overflow: "hidden",
       background: "linear-gradient(160deg, #05030f 0%, #0d0820 50%, #060315 100%)",
     }}>
-      <ThreeBackground />
+      <AnimatedBackground />
 
       {/* Ambient glow blobs */}
       <div style={{ position: "fixed", top: "10%", left: "15%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
