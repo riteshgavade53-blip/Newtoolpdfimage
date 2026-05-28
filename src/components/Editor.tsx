@@ -680,47 +680,51 @@ export default function Editor() {
         
         const ctx = cv.getContext('2d')!;
         const pageLayers = layers.filter(l => l.page === i + 1);
+
+        // Use canvas pixel size / base page size to get correct layer scale
+        // This ensures layers appear at the same proportion as on screen
+        const basePageSize = await getPageBaseSize(currentPage);
+        const pr = basePageSize ? vpWidth / basePageSize.w : exportScale;
         
         for (const layer of pageLayers) {
           if (layer.type === 'text') {
-            const bw = (layer.w || 140) * exportScale;
-            const bh = (layer.h || 34) * exportScale;
+            const bw = (layer.w || 140) * pr;
+            const bh = (layer.h || 34) * pr;
             ctx.fillStyle = '#ffffff';
-            ctx.fillRect(layer.x * exportScale, layer.y * exportScale, bw, bh);
-            ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * exportScale}px ${layer.fontFamily}`;
+            ctx.fillRect(layer.x * pr, layer.y * pr, bw, bh);
+            ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * pr}px ${layer.fontFamily}`;
             ctx.fillStyle = layer.color!;
-            ctx.textAlign = layer.textAlign as CanvasTextAlign;
             const textAlign = (layer.textAlign || 'left') as CanvasTextAlign;
             ctx.textAlign = textAlign;
             const textX = textAlign === 'center'
-              ? layer.x * exportScale + bw / 2
+              ? layer.x * pr + bw / 2
               : textAlign === 'right'
-                ? layer.x * exportScale + bw
-                : layer.x * exportScale + 4 * exportScale;
-            const lineHeight = layer.fontSize! * exportScale * 1.4;
+                ? layer.x * pr + bw
+                : layer.x * pr + 4 * pr;
+            const lineHeight = layer.fontSize! * pr * 1.4;
             const lines = (layer.content || '').split('\n');
             lines.forEach((line, lineIdx) => {
-              ctx.fillText(line, textX, layer.y * exportScale + layer.fontSize! * exportScale + (lineIdx * lineHeight));
+              ctx.fillText(line, textX, layer.y * pr + layer.fontSize! * pr + (lineIdx * lineHeight));
             });
           } else if (layer.type === 'shape') {
             ctx.globalAlpha = layer.opacity!;
             ctx.fillStyle = layer.fill!;
             ctx.strokeStyle = layer.stroke!;
-            ctx.lineWidth = 2 * exportScale;
+            ctx.lineWidth = 2 * pr;
             ctx.beginPath();
             if (layer.shapeType === 'rect') {
-              ctx.rect(layer.x * exportScale, layer.y * exportScale, layer.w! * exportScale, layer.h! * exportScale);
+              ctx.rect(layer.x * pr, layer.y * pr, layer.w! * pr, layer.h! * pr);
               ctx.fill(); ctx.stroke();
             } else if (layer.shapeType === 'circle') {
-              const rx = (layer.w! * exportScale) / 2;
-              const ry = (layer.h! * exportScale) / 2;
-              ctx.ellipse(layer.x * exportScale + rx, layer.y * exportScale + ry, rx, ry, 0, 0, Math.PI * 2);
+              const rx = (layer.w! * pr) / 2;
+              const ry = (layer.h! * pr) / 2;
+              ctx.ellipse(layer.x * pr + rx, layer.y * pr + ry, rx, ry, 0, 0, Math.PI * 2);
               ctx.fill(); ctx.stroke();
             }
             ctx.globalAlpha = 1;
           } else if (layer.type === 'img' && layer.imgSrc) {
             const img = await loadImgEl(layer.imgSrc);
-            ctx.drawImage(img, layer.x * exportScale, layer.y * exportScale, layer.w! * exportScale, layer.h! * exportScale);
+            ctx.drawImage(img, layer.x * pr, layer.y * pr, layer.w! * pr, layer.h! * pr);
           }
         }
         
@@ -826,45 +830,49 @@ export default function Editor() {
         const ctx = cv.getContext('2d')!;
         const pageLayers = layers.filter(l => l.page === i + 1);
 
+        // Use canvas pixel size / base page size for correct proportional scaling
+        const basePageSizeZip = await getPageBaseSize(currentPage);
+        const prZip = basePageSizeZip ? vpWidth / basePageSizeZip.w : exportScale;
+
         for (const layer of pageLayers) {
           if (layer.type === 'text') {
-            const bw = (layer.w || 140) * exportScale;
-            const bh = (layer.h || 34) * exportScale;
+            const bw = (layer.w || 140) * prZip;
+            const bh = (layer.h || 34) * prZip;
             ctx.fillStyle = '#ffffff';
-            ctx.fillRect(layer.x * exportScale, layer.y * exportScale, bw, bh);
-            ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * exportScale}px ${layer.fontFamily}`;
+            ctx.fillRect(layer.x * prZip, layer.y * prZip, bw, bh);
+            ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * prZip}px ${layer.fontFamily}`;
             ctx.fillStyle = layer.color!;
             const textAlign = (layer.textAlign || 'left') as CanvasTextAlign;
             ctx.textAlign = textAlign;
             const textX = textAlign === 'center'
-              ? layer.x * exportScale + bw / 2
+              ? layer.x * prZip + bw / 2
               : textAlign === 'right'
-                ? layer.x * exportScale + bw
-                : layer.x * exportScale + 4 * exportScale;
-            const lineHeight = layer.fontSize! * exportScale * 1.4;
+                ? layer.x * prZip + bw
+                : layer.x * prZip + 4 * prZip;
+            const lineHeight = layer.fontSize! * prZip * 1.4;
             const lines = (layer.content || '').split('\n');
             lines.forEach((line, lineIdx) => {
-              ctx.fillText(line, textX, layer.y * exportScale + layer.fontSize! * exportScale + (lineIdx * lineHeight));
+              ctx.fillText(line, textX, layer.y * prZip + layer.fontSize! * prZip + (lineIdx * lineHeight));
             });
           } else if (layer.type === 'shape') {
             ctx.globalAlpha = layer.opacity!;
             ctx.fillStyle = layer.fill!;
             ctx.strokeStyle = layer.stroke!;
-            ctx.lineWidth = 2 * exportScale;
+            ctx.lineWidth = 2 * prZip;
             ctx.beginPath();
             if (layer.shapeType === 'rect') {
-              ctx.rect(layer.x * exportScale, layer.y * exportScale, layer.w! * exportScale, layer.h! * exportScale);
+              ctx.rect(layer.x * prZip, layer.y * prZip, layer.w! * prZip, layer.h! * prZip);
               ctx.fill(); ctx.stroke();
             } else if (layer.shapeType === 'circle') {
-              const rx = (layer.w! * exportScale) / 2;
-              const ry = (layer.h! * exportScale) / 2;
-              ctx.ellipse(layer.x * exportScale + rx, layer.y * exportScale + ry, rx, ry, 0, 0, Math.PI * 2);
+              const rx = (layer.w! * prZip) / 2;
+              const ry = (layer.h! * prZip) / 2;
+              ctx.ellipse(layer.x * prZip + rx, layer.y * prZip + ry, rx, ry, 0, 0, Math.PI * 2);
               ctx.fill(); ctx.stroke();
             }
             ctx.globalAlpha = 1;
           } else if (layer.type === 'img' && layer.imgSrc) {
             const img = await loadImgEl(layer.imgSrc);
-            ctx.drawImage(img, layer.x * exportScale, layer.y * exportScale, layer.w! * exportScale, layer.h! * exportScale);
+            ctx.drawImage(img, layer.x * prZip, layer.y * prZip, layer.w! * prZip, layer.h! * prZip);
           }
         }
 
