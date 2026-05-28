@@ -70,8 +70,8 @@ export default function Editor() {
     rotation: 0
   });
 
-  const measureTextLayerSize = (layer: Layer, measureScale = 1) => {
-    const fontSize = (layer.fontSize || 18) * measureScale;
+  const measureTextLayerSize = (layer: Layer) => {
+    const fontSize = layer.fontSize || 18;
     const text = layer.content || '';
     const lines = text.split('\n');
     const measureCanvas = document.createElement('canvas');
@@ -83,12 +83,9 @@ export default function Editor() {
       const measuredWidth = measureCtx ? measureCtx.measureText(line || ' ').width : line.length * fontSize * 0.6;
       return Math.max(max, measuredWidth);
     }, 0);
-    const scaledW = Math.max(60 * measureScale, Math.ceil(widestLine + 12 * measureScale));
-    const scaledH = Math.max(fontSize * 1.5, Math.ceil(lines.length * fontSize * 1.2 + 8 * measureScale));
-    return {
-      w: scaledW / measureScale,
-      h: scaledH / measureScale,
-    };
+    const w = Math.max(60, Math.ceil(widestLine + 24));
+    const h = Math.max(fontSize * 1.5, Math.ceil(lines.length * fontSize * 1.4 + 16));
+    return { w, h };
   };
 
   const createImageLayerFromFile = async (file: File, targetPage = pageNum) => {
@@ -189,12 +186,18 @@ export default function Editor() {
   }, [pageNum]);
 
   const pasteLayer = (layerToPaste: Layer) => {
+    let pasteData: Partial<Layer> = { x: layerToPaste.x + 12, y: layerToPaste.y + 12 };
+    // For text layers ensure w/h are properly set from measurement if missing
+    if (layerToPaste.type === 'text') {
+      const measured = measureTextLayerSize(layerToPaste);
+      pasteData.w = layerToPaste.w || measured.w;
+      pasteData.h = layerToPaste.h || measured.h;
+    }
     const pasted: Layer = {
       ...layerToPaste,
+      ...pasteData,
       id: Date.now(),
       page: pageNum,
-      x: layerToPaste.x + 12,
-      y: layerToPaste.y + 12
     };
     setLayers(prev => [...prev, pasted]);
     setSelectedLayerId(pasted.id);
@@ -519,15 +522,13 @@ export default function Editor() {
   };
 
   const addText = () => {
-    const newLayer: Layer = {
+    const baseLayer = {
       id: Date.now(),
-      type: 'text',
+      type: 'text' as const,
       page: pageNum,
       x: 50,
       y: 50,
       content: 'Double-click to edit',
-      w: 180,
-      h: 44,
       fontFamily: 'Arial',
       fontSize: 18,
       color: '#000000',
@@ -536,6 +537,8 @@ export default function Editor() {
       textDecoration: 'none',
       textAlign: 'left'
     };
+    const { w, h } = measureTextLayerSize(baseLayer as Layer);
+    const newLayer: Layer = { ...baseLayer, w, h };
     setLayers([...layers, newLayer]);
     setSelectedLayerId(newLayer.id);
     setEditingTextId(newLayer.id);
@@ -687,10 +690,17 @@ export default function Editor() {
             ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * exportScale}px ${layer.fontFamily}`;
             ctx.fillStyle = layer.color!;
             ctx.textAlign = layer.textAlign as CanvasTextAlign;
-            
+            const textAlign = (layer.textAlign || 'left') as CanvasTextAlign;
+            ctx.textAlign = textAlign;
+            const textX = textAlign === 'center'
+              ? layer.x * exportScale + bw / 2
+              : textAlign === 'right'
+                ? layer.x * exportScale + bw
+                : layer.x * exportScale + 4 * exportScale;
+            const lineHeight = layer.fontSize! * exportScale * 1.4;
             const lines = (layer.content || '').split('\n');
             lines.forEach((line, lineIdx) => {
-              ctx.fillText(line, layer.x * exportScale, layer.y * exportScale + (layer.fontSize! * exportScale) + (lineIdx * layer.fontSize! * exportScale * 1.2));
+              ctx.fillText(line, textX, layer.y * exportScale + layer.fontSize! * exportScale + (lineIdx * lineHeight));
             });
           } else if (layer.type === 'shape') {
             ctx.globalAlpha = layer.opacity!;
@@ -824,11 +834,17 @@ export default function Editor() {
             ctx.fillRect(layer.x * exportScale, layer.y * exportScale, bw, bh);
             ctx.font = `${layer.fontStyle} ${layer.fontWeight} ${layer.fontSize! * exportScale}px ${layer.fontFamily}`;
             ctx.fillStyle = layer.color!;
-            ctx.textAlign = layer.textAlign as CanvasTextAlign;
-
+            const textAlign = (layer.textAlign || 'left') as CanvasTextAlign;
+            ctx.textAlign = textAlign;
+            const textX = textAlign === 'center'
+              ? layer.x * exportScale + bw / 2
+              : textAlign === 'right'
+                ? layer.x * exportScale + bw
+                : layer.x * exportScale + 4 * exportScale;
+            const lineHeight = layer.fontSize! * exportScale * 1.4;
             const lines = (layer.content || '').split('\n');
             lines.forEach((line, lineIdx) => {
-              ctx.fillText(line, layer.x * exportScale, layer.y * exportScale + (layer.fontSize! * exportScale) + (lineIdx * layer.fontSize! * exportScale * 1.2));
+              ctx.fillText(line, textX, layer.y * exportScale + layer.fontSize! * exportScale + (lineIdx * lineHeight));
             });
           } else if (layer.type === 'shape') {
             ctx.globalAlpha = layer.opacity!;
@@ -1370,15 +1386,17 @@ export default function Editor() {
             
             <div
               className="relative bg-white"
-              style={{ boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,91,255,0.15), 0 0 60px rgba(99,91,255,0.08)' }}
               ref={overlayRef}
               onDragOver={e => e.preventDefault()}
               onDrop={handleDrop}
               onClick={(e) => { e.stopPropagation(); if (e.target === overlayRef.current) { setSelectedLayerId(null); setEditingTextId(null); } }}
-              style={customPages[pageNum - 1]?.type === 'blank' ? {
-                backgroundImage: 'linear-gradient(to right, rgba(148,163,184,0.18) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.18) 1px, transparent 1px)',
-                backgroundSize: `${24 * scale}px ${24 * scale}px`
-              } : undefined}
+              style={{
+                boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,91,255,0.15), 0 0 60px rgba(99,91,255,0.08)',
+                ...(customPages[pageNum - 1]?.type === 'blank' ? {
+                  backgroundImage: 'linear-gradient(to right, rgba(148,163,184,0.18) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.18) 1px, transparent 1px)',
+                  backgroundSize: `${24 * scale}px ${24 * scale}px`
+                } : {})
+              }}
             >
               <canvas ref={canvasRef} className="block pointer-events-none" />
               
@@ -1394,8 +1412,8 @@ export default function Editor() {
                   style={{
                       left: layer.x * scale,
   top: layer.y * scale,
-  width: layer.type === 'text' ? 'max-content' : (layer.w ? layer.w * scale : '100px'),
-  height: layer.type === 'text' ? 'auto' : (layer.h ? layer.h * scale : '100px'),
+  width: layer.w ? layer.w * scale : (layer.type === 'text' ? 180 * scale : 100),
+  height: layer.h ? layer.h * scale : (layer.type === 'text' ? 44 * scale : 100),
   minHeight: layer.type === 'text' ? `${(layer.fontSize || 18) * scale * 1.4}px` : undefined,
   opacity: layer.opacity,
   color: layer.color,
@@ -1405,13 +1423,14 @@ export default function Editor() {
   fontStyle: layer.fontStyle,
   textDecoration: layer.textDecoration,
   textAlign: layer.textAlign as any,
-  backgroundColor: layer.type === 'shape' ? layer.fill : 'white',
+  backgroundColor: layer.type === 'shape' ? layer.fill : (layer.type === 'text' ? 'white' : 'transparent'),
   border: layer.type === 'shape' ? `${2 * scale}px solid ${layer.stroke}` : 'none',
   borderRadius: layer.shapeType === 'circle' ? '50%' : '0',
   minWidth: layer.type === 'text' ? '30px' : undefined,
   padding: layer.type === 'text' ? `${2 * scale}px ${4 * scale}px` : undefined,
   boxSizing: 'border-box' as const,
   display: 'flex',
+  overflow: 'hidden',
                   }}
                 >
                   {layer.type === 'text' && (
@@ -1422,13 +1441,16 @@ export default function Editor() {
   onChange={(e) => {
     const newContent = e.target.value;
     const tempLayer = { ...layer, content: newContent };
-    const { w: measuredW } = measureTextLayerSize(tempLayer, scale);
-    updateLayer(layer.id, { content: newContent, w: measuredW });
+    const { w: measuredW, h: measuredH } = measureTextLayerSize(tempLayer);
+    updateLayer(layer.id, { content: newContent, w: measuredW, h: measuredH });
+    // auto-resize textarea height
+    e.target.style.height = 'auto';
+    e.target.style.height = e.target.scrollHeight + 'px';
   }}
   onMouseDown={(e) => e.stopPropagation()}
   className="bg-transparent outline-none resize-none w-full block"
   style={{
-    lineHeight: "1.2",
+    lineHeight: "1.4",
     fontFamily: layer.fontFamily,
     fontSize: layer.fontSize ? layer.fontSize * scale : undefined,
     fontWeight: layer.fontWeight,
@@ -1442,10 +1464,12 @@ export default function Editor() {
     boxSizing: 'border-box' as const,
     display: 'block',
     width: '100%',
+    height: '100%',
+    minHeight: `${(layer.fontSize || 18) * scale * 1.4}px`,
   }}
 />
   ) : (
-    <div className="whitespace-pre-wrap w-full h-full" style={{ lineHeight: '1.2', wordBreak: 'break-word' }}>{layer.content}</div>
+    <div className="whitespace-pre-wrap w-full h-full" style={{ lineHeight: '1.4', wordBreak: 'break-word' }}>{layer.content}</div>
   )
 )}
                   {layer.type === 'img' && (
