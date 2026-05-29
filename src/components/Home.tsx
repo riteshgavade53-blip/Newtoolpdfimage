@@ -96,9 +96,9 @@ const tools = [
   {
     id: 'multilanguage-file-convert',
     icon: Languages,
-    title: 'Multi Language Convert',
-    desc: 'Fix CSV encoding issues and export a clean UTF-8 file for Excel.',
-    badge: 'CSV Repair',
+    title: 'Tabel Pdf to Excel Convert',
+    desc: 'same Excel Pdf convert to Excel File.',
+    badge: 'Pdf Convert',
     glow: '#0ea5e9',
     iconFrom: '#0369a1',
     iconTo: '#38bdf8',
