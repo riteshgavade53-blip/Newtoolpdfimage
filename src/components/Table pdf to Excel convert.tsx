@@ -1,15 +1,11 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 
 const TablePdfToExcel = () => {
   useEffect(() => {
-    window.location.href = "/Pdf To Excel/index.html";
+    window.location.href = "/pdf-to-excel/index.html";
   }, []);
 
-  return (
-    <div style={{ padding: "20px", fontSize: "18px" }}>
-      Redirecting...
-    </div>
-  );
+  return null;
 };
 
 export default TablePdfToExcel;
