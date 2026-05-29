@@ -9,8 +9,7 @@ import WordConverter from './components/WordConverter';
 import PdfToImage from './components/PdfToImage';
 import RotatePages from './components/RotatePages';
 import CleanExcel from './components/CleanExcel';
-import MultilanguageFileConvert from './components/MultilanguageFileConvert';
-
+import MultiLanguageFileConvert from "./components/MultiLanguageFileConvert";
 
 const tabs = [
   { id: 'home', label: 'Home', icon: HomeIcon },
