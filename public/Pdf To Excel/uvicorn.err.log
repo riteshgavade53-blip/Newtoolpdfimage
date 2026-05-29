@@ -1,0 +1,31 @@
+INFO:     Started server process [12220]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8007 (Press CTRL+C to quit)
+INFO:main:Saved PDF \u2192 C:\Users\petpooja\AppData\Local\Temp\pdf_uploads\bb8feed6a9d742c39ff14d06595eccd1.pdf
+INFO:main:Phase 1: pdfplumber extraction …
+WARNING:pdfminer.pdfpage:CropBox missing from /Page, defaulting to MediaBox
+WARNING:pdfminer.pdfpage:CropBox missing from /Page, defaulting to MediaBox
+WARNING:pdfminer.pdfpage:CropBox missing from /Page, defaulting to MediaBox
+WARNING:pdfminer.pdfpage:CropBox missing from /Page, defaulting to MediaBox
+WARNING:pdfminer.pdfpage:CropBox missing from /Page, defaulting to MediaBox
+INFO:main:  pdfplumber scanning page 1/5
+INFO:main:  pdfplumber scanning page 2/5
+INFO:main:  pdfplumber scanning page 3/5
+INFO:main:  pdfplumber scanning page 4/5
+INFO:main:  pdfplumber scanning page 5/5
+WARNING:pdfminer.pdfpage:CropBox missing from /Page, defaulting to MediaBox
+WARNING:pdfminer.pdfpage:CropBox missing from /Page, defaulting to MediaBox
+WARNING:pdfminer.pdfpage:CropBox missing from /Page, defaulting to MediaBox
+WARNING:pdfminer.pdfpage:CropBox missing from /Page, defaulting to MediaBox
+WARNING:pdfminer.pdfpage:CropBox missing from /Page, defaulting to MediaBox
+INFO:main:Cleaning 5 table(s) …
+INFO:main:Excel saved \u2192 C:\Users\petpooja\AppData\Local\Temp\excel_outputs\bb8feed6a9d742c39ff14d06595eccd1.xlsx
+INFO:main:Saved PDF \u2192 C:\Users\petpooja\AppData\Local\Temp\pdf_uploads\a988708499e8405e8337809a2526db24.pdf
+INFO:main:Phase 1: pdfplumber extraction …
+INFO:main:Phase 1: scanned PDF detected - skipping pdfplumber table scan.
+INFO:main:Phase 2: No native tables found – trying OCR …
+INFO:main:Phase 3: trying OCR ...
+INFO:main:  Tesseract OCR scanning page 1/1
+INFO:main:Cleaning 1 table(s) …
+INFO:main:Excel saved \u2192 C:\Users\petpooja\AppData\Local\Temp\excel_outputs\a988708499e8405e8337809a2526db24.xlsx

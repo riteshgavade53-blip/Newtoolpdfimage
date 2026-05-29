@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF to Excel Converter — TableCraft</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Variables ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --forest:        #0D3B25;
+      --forest-mid:    #154F33;
+      --forest-light:  #1E6B45;
+      --jade:          #2A9D5C;
+      --mint:          #3EC878;
+      --mint-glow:     rgba(62,200,120,.18);
+      --cream:         #F4F0E6;
+      --cream-dark:    #E8E3D5;
+      --text-main:     #1A1A1A;
+      --text-sub:      #4A5A4F;
+      --white:         #FFFFFF;
+      --error:         #E05252;
+      --radius:        14px;
+      --shadow:        0 8px 40px rgba(13,59,37,.18);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--forest);
+      color: var(--cream);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise texture overlay ─────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Grid pattern ──────────────────────────────────────────────── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(62,200,120,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(62,200,120,.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Nav ───────────────────────────────────────────────────────── */
+    nav {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 22px 60px;
+      border-bottom: 1px solid rgba(62,200,120,.12);
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: var(--mint);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+
+    .logo-text {
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px;
+      color: var(--white);
+      letter-spacing: -.3px;
+    }
+
+    .logo-text span { color: var(--mint); }
+
+    .nav-pill {
+      background: rgba(62,200,120,.1);
+      border: 1px solid rgba(62,200,120,.25);
+      color: var(--mint);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+
+    /* ── Hero ──────────────────────────────────────────────────────── */
+    .hero {
+      position: relative; z-index: 5;
+      text-align: center;
+      padding: 72px 24px 0;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(62,200,120,.12);
+      border: 1px solid rgba(62,200,120,.3);
+      color: var(--mint);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      padding: 6px 14px 6px 10px;
+      border-radius: 20px;
+      margin-bottom: 28px;
+    }
+
+    .hero-badge::before {
+      content: '●';
+      font-size: 8px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .3; }
+    }
+
+    h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(38px, 6vw, 68px);
+      line-height: 1.08;
+      color: var(--white);
+      letter-spacing: -1.5px;
+      margin-bottom: 20px;
+    }
+
+    h1 em {
+      font-style: italic;
+      color: var(--mint);
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      color: rgba(244,240,230,.65);
+      line-height: 1.7;
+      font-weight: 300;
+      max-width: 560px;
+      margin: 0 auto 48px;
+    }
+
+    /* ── Features strip ────────────────────────────────────────────── */
+    .features {
+      position: relative; z-index: 5;
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      max-width: 720px;
+      margin: 0 auto 52px;
+      border: 1px solid rgba(62,200,120,.15);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .feat {
+      flex: 1;
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 20px;
+      font-size: 13px;
+      color: rgba(244,240,230,.7);
+      font-weight: 400;
+      border-right: 1px solid rgba(62,200,120,.12);
+    }
+
+    .feat:last-child { border-right: none; }
+
+    .feat-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    /* ── Converter card ────────────────────────────────────────────── */
+    .converter-wrap {
+      position: relative; z-index: 5;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px 100px;
+    }
+
+    .card {
+      background: rgba(21, 79, 51, .55);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(62,200,120,.2);
+      border-radius: 20px;
+      padding: 36px;
+      box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,.03) inset;
+    }
+
+    /* ── Drop zone ─────────────────────────────────────────────────── */
+    #drop-zone {
+      border: 2px dashed rgba(62,200,120,.35);
+      border-radius: var(--radius);
+      padding: 52px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #drop-zone.drag-over {
+      border-color: var(--mint);
+      background: var(--mint-glow);
+      transform: scale(1.01);
+    }
+
+    #drop-zone:hover {
+      border-color: rgba(62,200,120,.6);
+      background: rgba(62,200,120,.04);
+    }
+
+    .drop-icon {
+      width: 64px; height: 64px;
+      background: rgba(62,200,120,.12);
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 18px;
+      font-size: 28px;
+      transition: transform .3s ease;
+    }
+
+    #drop-zone:hover .drop-icon,
+    #drop-zone.drag-over .drop-icon {
+      transform: translateY(-4px);
+    }
+
+    .drop-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 6px;
+    }
+
+    .drop-sub {
+      font-size: 13px;
+      color: rgba(244,240,230,.5);
+      margin-bottom: 20px;
+    }
+
+    .btn-browse {
+      display: inline-block;
+      background: var(--jade);
+      color: var(--white);
+      border: none;
+      border-radius: 8px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background .2s, transform .15s;
+    }
+
+    .btn-browse:hover {
+      background: var(--mint);
+      transform: translateY(-1px);
+    }
+
+    #file-input { display: none; }
+
+    /* ── Progress section ──────────────────────────────────────────── */
+    #progress-section { display: none; }
+
+    .file-info {
+      display: flex; align-items: center; gap: 14px;
+      background: rgba(62,200,120,.08);
+      border: 1px solid rgba(62,200,120,.2);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 24px;
+    }
+
+    .file-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+
+    .file-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--white);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-size {
+      font-size: 12px;
+      color: rgba(244,240,230,.45);
+      margin-top: 2px;
+    }
+
+    /* ── Steps tracker ─────────────────────────────────────────────── */
+    .steps {
+      display: flex;
+      gap: 0;
+      margin-bottom: 28px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(62,200,120,.15);
+    }
+
+    .step {
+      flex: 1;
+      padding: 12px 8px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(244,240,230,.35);
+      letter-spacing: .4px;
+      text-transform: uppercase;
+      transition: all .4s ease;
+      border-right: 1px solid rgba(62,200,120,.12);
+      position: relative;
+    }
+
+    .step:last-child { border-right: none; }
+
+    .step.active {
+      background: rgba(62,200,120,.12);
+      color: var(--mint);
+    }
+
+    .step.done {
+      background: rgba(62,200,120,.08);
+      color: rgba(62,200,120,.6);
+    }
+
+    .step .step-dot {
+      display: block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      margin: 0 auto 5px;
+    }
+
+    .step.active .step-dot {
+      animation: pulse 1.2s infinite;
+    }
+
+    /* ── Progress bar ──────────────────────────────────────────────── */
+    .progress-label {
+      display: flex; justify-content: space-between;
+      font-size: 13px;
+      color: rgba(244,240,230,.6);
+      margin-bottom: 8px;
+    }
+
+    .progress-bar-wrap {
+      height: 6px;
+      background: rgba(62,200,120,.12);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 28px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--jade), var(--mint));
+      border-radius: 10px;
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+      width: 0%;
+      box-shadow: 0 0 10px rgba(62,200,120,.5);
+    }
+
+    /* ── Download zone ─────────────────────────────────────────────── */
+    #download-section { display: none; }
+
+    .success-box {
+      text-align: center;
+      padding: 32px 20px;
+    }
+
+    .success-icon {
+      width: 72px; height: 72px;
+      background: rgba(62,200,120,.15);
+      border: 2px solid var(--mint);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+      margin: 0 auto 20px;
+      animation: popIn .5s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    .success-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 6px;
+    }
+
+    .success-sub {
+      font-size: 14px;
+      color: rgba(244,240,230,.5);
+      margin-bottom: 28px;
+    }
+
+    .btn-download {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: linear-gradient(135deg, var(--jade), var(--mint));
+      color: var(--white);
+      text-decoration: none;
+      border: none;
+      border-radius: 10px;
+      padding: 14px 32px;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: transform .2s, box-shadow .2s;
+      box-shadow: 0 4px 24px rgba(62,200,120,.35);
+    }
+
+    .btn-download:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(62,200,120,.5);
+    }
+
+    .btn-convert-another {
+      display: block;
+      margin: 16px auto 0;
+      background: none;
+      border: 1px solid rgba(62,200,120,.3);
+      color: rgba(244,240,230,.6);
+      border-radius: 8px;
+      padding: 9px 20px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .btn-convert-another:hover {
+      border-color: rgba(62,200,120,.6);
+      color: var(--mint);
+    }
+
+    /* ── Error ─────────────────────────────────────────────────────── */
+    #error-section {
+      display: none;
+      background: rgba(224,82,82,.1);
+      border: 1px solid rgba(224,82,82,.3);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-top: 20px;
+      color: #F2A0A0;
+      font-size: 14px;
+    }
+
+    .error-title {
+      font-weight: 600;
+      color: var(--error);
+      margin-bottom: 4px;
+    }
+
+    /* ── Trust strip ───────────────────────────────────────────────── */
+    .trust-strip {
+      position: relative; z-index: 5;
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      padding: 0 24px 48px;
+      max-width: 600px;
+      margin: 32px auto 0;
+    }
+
+    .trust-item {
+      text-align: center;
+      font-size: 12px;
+      color: rgba(244,240,230,.4);
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+
+    .trust-item .t-icon { font-size: 20px; }
+
+    /* ── Footer ────────────────────────────────────────────────────── */
+    footer {
+      position: relative; z-index: 5;
+      text-align: center;
+      padding: 24px;
+      border-top: 1px solid rgba(62,200,120,.08);
+      font-size: 12px;
+      color: rgba(244,240,230,.25);
+    }
+
+    /* ── Responsive ────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      nav { padding: 16px 20px; }
+      .hero { padding: 48px 16px 0; }
+      .converter-wrap { padding: 0 16px 60px; }
+      .card { padding: 24px 20px; }
+      .features { flex-direction: column; }
+      .feat { border-right: none; border-bottom: 1px solid rgba(62,200,120,.12); }
+      .feat:last-child { border-bottom: none; }
+      .trust-strip { gap: 20px; }
+      .steps { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <a class="logo" href="#">
+      <div class="logo-icon">📊</div>
+      <span class="logo-text">Table<span>Craft</span></span>
+    </a>
+    <span class="nav-pill">Free · No Login</span>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-badge">PDF Table Extractor</div>
+    <h1>Convert PDF tables to<br/><em>perfect</em> Excel files</h1>
+    <p class="hero-sub">
+      Powered by precision table-detection algorithms. Your rows, columns, and
+      cell data land exactly where they belong — no mangled columns, no missing data.
+    </p>
+  </section>
+
+  <!-- Feature strip -->
+  <div class="features">
+    <div class="feat"><span class="feat-icon">🔍</span> Border &amp; stream detection</div>
+    <div class="feat"><span class="feat-icon">🤖</span> OCR for scanned PDFs</div>
+    <div class="feat"><span class="feat-icon">📐</span> Auto column widths</div>
+    <div class="feat"><span class="feat-icon">🔒</span> Files never stored</div>
+  </div>
+
+  <!-- Converter -->
+  <div class="converter-wrap">
+    <div class="card">
+
+      <!-- Drop zone -->
+      <div id="drop-zone">
+        <div class="drop-icon">📄</div>
+        <p class="drop-title">Drop your PDF here</p>
+        <p class="drop-sub">Supports native, digital &amp; scanned PDFs</p>
+        <button class="btn-browse" onclick="document.getElementById('file-input').click()">
+          Browse Files
+        </button>
+        <input type="file" id="file-input" accept=".pdf" />
+      </div>
+
+      <!-- Progress -->
+      <div id="progress-section">
+        <div class="file-info">
+          <span class="file-icon">📑</span>
+          <div>
+            <div class="file-name" id="file-name-display">document.pdf</div>
+            <div class="file-size" id="file-size-display">0 KB</div>
+          </div>
+        </div>
+
+        <div class="steps">
+          <div class="step" id="step-upload">
+            <span class="step-dot"></span>Uploading
+          </div>
+          <div class="step" id="step-analyze">
+            <span class="step-dot"></span>Analyzing
+          </div>
+          <div class="step" id="step-convert">
+            <span class="step-dot"></span>Converting
+          </div>
+          <div class="step" id="step-done">
+            <span class="step-dot"></span>Done
+          </div>
+        </div>
+
+        <div class="progress-label">
+          <span id="progress-msg">Uploading file…</span>
+          <span id="progress-pct">0%</span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progress-bar"></div>
+        </div>
+      </div>
+
+      <!-- Download -->
+      <div id="download-section">
+        <div class="success-box">
+          <div class="success-icon">✅</div>
+          <p class="success-title">Conversion Complete!</p>
+          <p class="success-sub" id="table-count-msg">Tables extracted and formatted successfully.</p>
+          <a id="download-link" href="#" class="btn-download">
+            <span>⬇</span> Download Excel File
+          </a>
+          <button class="btn-convert-another" onclick="resetUI()">
+            Convert another PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="error-section">
+        <p class="error-title">⚠ Conversion Failed</p>
+        <p id="error-msg">An unexpected error occurred.</p>
+        <button class="btn-convert-another" onclick="resetUI()" style="margin-top:12px; display:inline-block">
+          Try again
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Trust -->
+  <div class="trust-strip">
+    <div class="trust-item"><span class="t-icon">🗑</span>Auto-deleted after download</div>
+    <div class="trust-item"><span class="t-icon">⚡</span>No account required</div>
+    <div class="trust-item"><span class="t-icon">🌐</span>Runs locally on your machine</div>
+  </div>
+
+  <footer>© 2024 TableCraft · Built with pdfplumber · camelot · openpyxl</footer>
+
+  <script>
+    const dropZone       = document.getElementById('drop-zone');
+    const fileInput      = document.getElementById('file-input');
+    const progressSec    = document.getElementById('progress-section');
+    const downloadSec    = document.getElementById('download-section');
+    const errorSec       = document.getElementById('error-section');
+    const progressBar    = document.getElementById('progress-bar');
+    const progressMsg    = document.getElementById('progress-msg');
+    const progressPct    = document.getElementById('progress-pct');
+    const downloadLink   = document.getElementById('download-link');
+    const fileNameDisplay = document.getElementById('file-name-display');
+    const fileSizeDisplay = document.getElementById('file-size-display');
+
+    const steps = {
+      upload:  document.getElementById('step-upload'),
+      analyze: document.getElementById('step-analyze'),
+      convert: document.getElementById('step-convert'),
+      done:    document.getElementById('step-done'),
+    };
+
+    // ── Drag & Drop ───────────────────────────────────────────────────────
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop',      e  => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) validateAndConvert(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) validateAndConvert(fileInput.files[0]);
+    });
+
+    function validateAndConvert(file) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        showError('Only PDF files are supported. Please upload a .pdf file.');
+        return;
+      }
+      convertFile(file);
+    }
+
+    // ── UI helpers ────────────────────────────────────────────────────────
+    function setStep(name) {
+      const order = ['upload', 'analyze', 'convert', 'done'];
+      const idx = order.indexOf(name);
+      order.forEach((s, i) => {
+        steps[s].className = 'step' + (i < idx ? ' done' : i === idx ? ' active' : '');
+      });
+    }
+
+    function setProgress(pct, msg) {
+      progressBar.style.width = pct + '%';
+      progressMsg.textContent = msg;
+      progressPct.textContent = pct + '%';
+    }
+
+    function showError(msg) {
+      dropZone.style.display = 'block';
+      progressSec.style.display = 'none';
+      downloadSec.style.display = 'none';
+      errorSec.style.display = 'block';
+      document.getElementById('error-msg').textContent = msg;
+    }
+
+    function resetUI() {
+      dropZone.style.display = 'block';
+      progressSec.style.display = 'none';
+      downloadSec.style.display = 'none';
+      errorSec.style.display = 'none';
+      fileInput.value = '';
+      setProgress(0, '');
+    }
+
+    // ── Core conversion ───────────────────────────────────────────────────
+    async function convertFile(file) {
+      // Show UI
+      dropZone.style.display = 'none';
+      progressSec.style.display = 'block';
+      downloadSec.style.display = 'none';
+      errorSec.style.display = 'none';
+
+      fileNameDisplay.textContent = file.name;
+      fileSizeDisplay.textContent = formatSize(file.size);
+
+      // Step 1 — upload
+      setStep('upload');
+      setProgress(10, 'Uploading file…');
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Simulate intermediate step animations while fetch runs
+      const progressStages = [
+        { delay: 400,  step: 'upload',  pct: 25, msg: 'File received — scanning structure…' },
+        { delay: 900,  step: 'analyze', pct: 45, msg: 'Detecting table borders & columns…' },
+        { delay: 1500, step: 'analyze', pct: 62, msg: 'Mapping cell coordinates…' },
+        { delay: 2200, step: 'convert', pct: 78, msg: 'Building Excel workbook…' },
+        { delay: 2900, step: 'convert', pct: 90, msg: 'Auto-fitting column widths…' },
+      ];
+
+      let timerIds = progressStages.map(({ delay, step, pct, msg }) =>
+        setTimeout(() => { setStep(step); setProgress(pct, msg); }, delay)
+      );
+
+      try {
+        const response = await fetch('/convert', {
+          method: 'POST',
+          body: formData,
+        });
+
+        timerIds.forEach(clearTimeout);
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({ detail: 'Server error.' }));
+          showError(err.detail || 'Conversion failed. Please try a different PDF.');
+          return;
+        }
+
+        // Success
+        setStep('done');
+        setProgress(100, 'Conversion complete!');
+
+        // Build download blob
+        const blob = await response.blob();
+        const url  = URL.createObjectURL(blob);
+        const disposition = response.headers.get('content-disposition') || '';
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        const filename = match ? match[1] : file.name.replace(/\.pdf$/i, '_converted.xlsx');
+
+        downloadLink.href = url;
+        downloadLink.download = filename;
+
+        await sleep(500);
+        progressSec.style.display = 'none';
+        downloadSec.style.display = 'block';
+
+      } catch (err) {
+        timerIds.forEach(clearTimeout);
+        showError('Network error — make sure the backend server is running on port 8000.');
+      }
+    }
+
+    // ── Utilities ─────────────────────────────────────────────────────────
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    function formatSize(bytes) {
+      if (bytes < 1024)        return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+  </script>
+</body>
+</html>
