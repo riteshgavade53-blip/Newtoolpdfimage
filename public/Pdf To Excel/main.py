@@ -327,58 +327,56 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_excel(tables: list[pd.DataFrame], output_path: str) -> None:
-    """Write all extracted DataFrames into a single 'Data' sheet, stacked vertically."""
+    """Write ALL extracted DataFrames into a SINGLE sheet, stacked vertically."""
     wb = openpyxl.Workbook()
-    wb.remove(wb.active)  # remove default blank sheet
+    # Use the default sheet — rename it
+    ws = wb.active
+    ws.title = "Data"
 
-    if tables:
-        ws = wb.create_sheet(title="Data")
-        current_row = 1
-
-        for table_index, table in enumerate(tables):
-            table = table.copy().fillna("")
-
-            # Add one blank separator row between tables (not before the first one)
-            if table_index > 0:
-                current_row += 1  # blank row as visual separator
-
-            # Write header row if columns have meaningful names
-            has_header = any(
-                str(col_name).strip() not in ("", "0", "None")
-                for col_name in table.columns
-                if col_name is not None
-            )
-            if has_header:
-                for col_num, col_name in enumerate(table.columns, start=1):
-                    ws.cell(
-                        row=current_row,
-                        column=col_num,
-                        value=str(col_name).strip() if col_name is not None else "",
-                    )
-                current_row += 1
-
-            # Write data rows
-            for row in table.itertuples(index=False):
-                for col_num, value in enumerate(row, start=1):
-                    ws.cell(row=current_row, column=col_num, value=str(value) if value != "" else "")
-                current_row += 1
-
-        # Auto-fit column widths based on content
-        for col_cells in ws.columns:
-            max_len = 0
-            col_letter = get_column_letter(col_cells[0].column)
-            for cell in col_cells:
-                try:
-                    cell_len = len(str(cell.value)) if cell.value else 0
-                    max_len = max(max_len, cell_len)
-                except Exception:
-                    pass
-            adjusted = min(max(max_len + 4, 10), 60)
-            ws.column_dimensions[col_letter].width = adjusted
-
-    if not wb.sheetnames:
-        ws = wb.create_sheet("No_Tables_Found")
+    if not tables:
         ws["A1"] = "No tables were detected in the uploaded PDF."
+        wb.save(output_path)
+        return
+
+    current_row = 1
+
+    for table_index, table in enumerate(tables):
+        table = table.copy().fillna("")
+
+        # Blank separator row between tables
+        if table_index > 0:
+            current_row += 1
+
+        # Only write header if column names are meaningful
+        col_names = [str(c).strip() for c in table.columns]
+        has_real_header = any(
+            c and c not in ("", "0", "1", "2", "3", "4", "5", "None")
+            for c in col_names
+        )
+
+        if has_real_header:
+            for col_num, col_name in enumerate(col_names, start=1):
+                ws.cell(row=current_row, column=col_num, value=col_name)
+            current_row += 1
+
+        # Write data rows — increment current_row for EACH row
+        for row_tuple in table.itertuples(index=False):
+            for col_num, value in enumerate(row_tuple, start=1):
+                cell_val = str(value) if value not in ("", None) else ""
+                ws.cell(row=current_row, column=col_num, value=cell_val)
+            current_row += 1
+
+    # Auto-fit column widths
+    for col_cells in ws.columns:
+        max_len = 0
+        col_letter = get_column_letter(col_cells[0].column)
+        for cell in col_cells:
+            try:
+                cell_len = len(str(cell.value)) if cell.value else 0
+                max_len = max(max_len, cell_len)
+            except Exception:
+                pass
+        ws.column_dimensions[col_letter].width = min(max(max_len + 4, 10), 60)
 
     wb.save(output_path)
 
