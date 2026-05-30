@@ -252,6 +252,10 @@ function t1_extractFields(c, type) {
   return { category: c[1], itemName: c[2], variation: c[3], price: c[6] || '0', desc: c[7], dietary: c[8] };
 }
 
+function t1_toProperCase(str) {
+  return str.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 function t1_convert() {
   if (t1_converting) return;
   t1_converting = true;
@@ -270,7 +274,7 @@ function t1_convert() {
     if (t1_isHeaderRow(c)) continue;
 
     const { category, itemName, variation, price, desc, dietary } = t1_extractFields(c, t1_detectedType);
-    const base = t1_getBaseName(itemName, variation);
+    const base = t1_toProperCase(t1_getBaseName(itemName, variation));
     const code = codeNum++ + ' [new]';
     count++;
     const vals = [base, base, variation, price, category, category, code, '', desc, dietary, 'services'];
