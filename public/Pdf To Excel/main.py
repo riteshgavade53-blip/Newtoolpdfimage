@@ -58,7 +58,7 @@ def has_selectable_text(pdf_path: str, max_pages: int = 2) -> bool:
 
 def extract_tables_pdfplumber(pdf_path: str) -> list[pd.DataFrame]:
     """Extract tables from a native/digital PDF using pdfplumber.
-    All pages are merged into a SINGLE DataFrame to avoid multi-sheet output."""
+    All pages and all tables are merged into a SINGLE DataFrame."""
     all_rows = []
     detected_header = None
 
@@ -93,26 +93,25 @@ def extract_tables_pdfplumber(pdf_path: str) -> list[pd.DataFrame]:
                 if not tbl or len(tbl) < 2:
                     continue
 
-                # Detect header: use first page's first row as the global header
-                first_row = tbl[0]
+                # Use very first row ever seen as the global header
                 if detected_header is None:
-                    detected_header = first_row
+                    detected_header = [str(c).strip() if c else "" for c in tbl[0]]
                     data_rows = tbl[1:]
                 else:
                     # Skip repeated header rows on subsequent pages
-                    if tbl[0] == detected_header or all(
-                        str(c).strip().lower() == str(h).strip().lower()
-                        for c, h in zip(tbl[0], detected_header)
-                    ):
+                    first_row_norm = [str(c).strip().lower() if c else "" for c in tbl[0]]
+                    header_norm    = [h.strip().lower() for h in detected_header]
+                    if first_row_norm == header_norm:
                         data_rows = tbl[1:]
                     else:
-                        data_rows = tbl  # no header on this page chunk
+                        data_rows = tbl
 
                 n_cols = len(detected_header)
                 for row in data_rows:
-                    if len(row) < n_cols:
-                        row = row + [""] * (n_cols - len(row))
-                    all_rows.append(row[:n_cols])
+                    norm = [str(c).strip() if c is not None else "" for c in row]
+                    if len(norm) < n_cols:
+                        norm += [""] * (n_cols - len(norm))
+                    all_rows.append(norm[:n_cols])
 
     if not all_rows or detected_header is None:
         return []
@@ -121,7 +120,7 @@ def extract_tables_pdfplumber(pdf_path: str) -> list[pd.DataFrame]:
     df = df.replace("", pd.NA).dropna(how="all").fillna("")
     if df.empty:
         return []
-    return [df]  # single DataFrame — one sheet
+    return [df]  # always single DataFrame -> one sheet
 
 
 def extract_text_rows_pdfplumber(pdf_path: str) -> list[pd.DataFrame]:
@@ -280,8 +279,7 @@ def extract_tables_ocr(pdf_path: str) -> list[pd.DataFrame]:
                     tables.append(pd.DataFrame(padded, columns=[""] * n_cols))
 
             if tables:
-                # Merge all per-page DataFrames into one single sheet
-                merged = pd.concat(tables, ignore_index=True)
+                merged = pd.concat(tables, ignore_index=True).fillna("")
                 return [merged]
         except Exception:
             logger.exception("Tesseract OCR extraction failed - trying optional OCR path.")
@@ -331,8 +329,7 @@ def extract_tables_ocr(pdf_path: str) -> list[pd.DataFrame]:
                     tables.append(df)
 
         if tables:
-            # Merge all per-page DataFrames into one single sheet
-            merged = pd.concat(tables, ignore_index=True)
+            merged = pd.concat(tables, ignore_index=True).fillna("")
             return [merged]
         return []
     except Exception:
@@ -353,7 +350,7 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_excel(tables: list[pd.DataFrame], output_path: str) -> None:
-    """Write ALL extracted DataFrames into a SINGLE sheet, stacked vertically."""
+    """Merge ALL extracted DataFrames into ONE sheet and write to Excel."""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Data"
@@ -363,31 +360,33 @@ def write_excel(tables: list[pd.DataFrame], output_path: str) -> None:
         wb.save(output_path)
         return
 
+    # ── Merge all DataFrames into a single one before writing ──────────────
+    # Align columns: use the widest column set (from first non-empty df)
+    # and concat everything, filling missing columns with empty string.
+    merged = pd.concat(tables, ignore_index=True, sort=False).fillna("")
+
+    col_names = [str(c).strip() for c in merged.columns]
+    has_real_header = any(
+        c and c not in ("", "0", "1", "2", "3", "4", "5", "None")
+        for c in col_names
+    )
+
     current_row = 1
 
-    for table_index, table in enumerate(tables):
-        table = table.copy().fillna("")
+    # Write header row only if columns have meaningful names
+    if has_real_header:
+        for col_num, col_name in enumerate(col_names, start=1):
+            ws.cell(row=current_row, column=col_num, value=col_name)
+        current_row += 1
 
-        if table_index > 0:
-            current_row += 1  # blank separator row between tables
+    # Write data rows
+    for row_tuple in merged.itertuples(index=False):
+        for col_num, value in enumerate(row_tuple, start=1):
+            cell_val = str(value) if value not in ("", None) else ""
+            ws.cell(row=current_row, column=col_num, value=cell_val)
+        current_row += 1
 
-        col_names = [str(c).strip() for c in table.columns]
-        has_real_header = any(
-            c and c not in ("", "0", "1", "2", "3", "4", "5", "None")
-            for c in col_names
-        )
-
-        if has_real_header:
-            for col_num, col_name in enumerate(col_names, start=1):
-                ws.cell(row=current_row, column=col_num, value=col_name)
-            current_row += 1
-
-        for row_tuple in table.itertuples(index=False):
-            for col_num, value in enumerate(row_tuple, start=1):
-                cell_val = str(value) if value not in ("", None) else ""
-                ws.cell(row=current_row, column=col_num, value=cell_val)
-            current_row += 1  # increment after EVERY row
-
+    # Auto-fit column widths
     for col_cells in ws.columns:
         max_len = 0
         col_letter = get_column_letter(col_cells[0].column)
@@ -457,6 +456,10 @@ async def convert_pdf(file: UploadFile = File(...)):
         # Phase 3: clean & write
         logger.info(f"Cleaning {len(tables)} table(s) …")
         tables = [clean_dataframe(df) for df in tables if not df.empty]
+        # Safety net: if somehow multiple DataFrames still exist, merge into one
+        if len(tables) > 1:
+            logger.info("Merging multiple tables into single sheet …")
+            tables = [pd.concat(tables, ignore_index=True, sort=False).fillna("")]
         write_excel(tables, xlsx_path)
         logger.info(f"Excel saved → {xlsx_path}")
 
