@@ -9,7 +9,7 @@ import WordConverter from './components/WordConverter';
 import PdfToImage from './components/PdfToImage';
 import RotatePages from './components/RotatePages';
 import CleanExcel from './components/CleanExcel';
-import MultiLanguageFileConvert from "./components/MultiLanguageFileConvert";
+import MultiLanguageFileConvert from "./components/MultilanguageFileConvert";
 
 const tabs = [
   { id: 'home', label: 'Home', icon: HomeIcon },
@@ -79,7 +79,7 @@ export default function App() {
         {activeTab === 'pdf2img' && <PdfToImage />}
         {activeTab === 'rotate' && <RotatePages />}
         {activeTab === 'cleanexcel' && <CleanExcel />}
-        {activeTab === 'multilanguage-file-convert' && <MultiLanguageFileConvert />}
+        {activeTab === 'multilanguage-file-convert' && <MultilanguageFileConvert />}
 
       </main>
     </div>
