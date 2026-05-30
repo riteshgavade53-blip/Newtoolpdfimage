@@ -280,7 +280,9 @@ def extract_tables_ocr(pdf_path: str) -> list[pd.DataFrame]:
                     tables.append(pd.DataFrame(padded, columns=[""] * n_cols))
 
             if tables:
-                return tables
+                # Merge all per-page DataFrames into one single sheet
+                merged = pd.concat(tables, ignore_index=True)
+                return [merged]
         except Exception:
             logger.exception("Tesseract OCR extraction failed - trying optional OCR path.")
 
@@ -328,7 +330,11 @@ def extract_tables_ocr(pdf_path: str) -> list[pd.DataFrame]:
                 if not df.empty:
                     tables.append(df)
 
-        return tables
+        if tables:
+            # Merge all per-page DataFrames into one single sheet
+            merged = pd.concat(tables, ignore_index=True)
+            return [merged]
+        return []
     except Exception:
         logger.exception("OCR extraction failed - continuing without OCR results.")
         return []
