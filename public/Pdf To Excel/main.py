@@ -327,7 +327,7 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_excel(tables: list[pd.DataFrame], output_path: str) -> None:
-    """Write extracted DataFrames to one plain .xlsx sheet."""
+    """Write all extracted DataFrames into a single 'Data' sheet, stacked vertically."""
     wb = openpyxl.Workbook()
     wb.remove(wb.active)  # remove default blank sheet
 
@@ -338,30 +338,32 @@ def write_excel(tables: list[pd.DataFrame], output_path: str) -> None:
         for table_index, table in enumerate(tables):
             table = table.copy().fillna("")
 
+            # Add one blank separator row between tables (not before the first one)
             if table_index > 0:
-                current_row += 1
+                current_row += 1  # blank row as visual separator
 
-            has_header = any(str(col_name).strip() for col_name in table.columns if col_name is not None)
+            # Write header row if columns have meaningful names
+            has_header = any(
+                str(col_name).strip() not in ("", "0", "None")
+                for col_name in table.columns
+                if col_name is not None
+            )
             if has_header:
-                # Keep each PDF table/page stacked vertically instead of merging
-                # mismatched headers into new Excel columns.
                 for col_num, col_name in enumerate(table.columns, start=1):
                     ws.cell(
                         row=current_row,
                         column=col_num,
                         value=str(col_name).strip() if col_name is not None else "",
                     )
-
                 current_row += 1
 
-            for row_offset, row in enumerate(table.itertuples(index=False), start=0):
-                row_num = current_row + row_offset
+            # Write data rows
+            for row in table.itertuples(index=False):
                 for col_num, value in enumerate(row, start=1):
-                    ws.cell(row=row_num, column=col_num, value=str(value) if value != "" else "")
+                    ws.cell(row=current_row, column=col_num, value=str(value) if value != "" else "")
+                current_row += 1
 
-            current_row += len(table)
-
-        # Auto-fit column widths
+        # Auto-fit column widths based on content
         for col_cells in ws.columns:
             max_len = 0
             col_letter = get_column_letter(col_cells[0].column)
