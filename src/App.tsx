@@ -79,7 +79,7 @@ export default function App() {
         {activeTab === 'pdf2img' && <PdfToImage />}
         {activeTab === 'rotate' && <RotatePages />}
         {activeTab === 'cleanexcel' && <CleanExcel />}
-        {activeTab === 'multilanguage-file-convert' && <MultilanguageFileConvert />}
+        {activeTab === 'multilanguage-file-convert' && <MultiLanguageFileConvert />}
 
       </main>
     </div>
