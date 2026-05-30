@@ -57,13 +57,15 @@ def has_selectable_text(pdf_path: str, max_pages: int = 2) -> bool:
 
 
 def extract_tables_pdfplumber(pdf_path: str) -> list[pd.DataFrame]:
-    """Extract tables from a native/digital PDF using pdfplumber."""
-    tables = []
+    """Extract tables from a native/digital PDF using pdfplumber.
+    All pages are merged into a SINGLE DataFrame to avoid multi-sheet output."""
+    all_rows = []
+    detected_header = None
+
     with pdfplumber.open(pdf_path) as pdf:
         for page_num, page in enumerate(pdf.pages, start=1):
             logger.info(f"  pdfplumber scanning page {page_num}/{len(pdf.pages)}")
 
-            # Try explicit table settings first (lattice-like: detects lines/borders)
             table_settings_strict = {
                 "vertical_strategy": "lines",
                 "horizontal_strategy": "lines",
@@ -75,7 +77,6 @@ def extract_tables_pdfplumber(pdf_path: str) -> list[pd.DataFrame]:
             }
             extracted = page.extract_tables(table_settings_strict)
 
-            # Fallback to text-based stream mode if no bordered tables found
             if not extracted:
                 table_settings_stream = {
                     "vertical_strategy": "text",
@@ -85,39 +86,58 @@ def extract_tables_pdfplumber(pdf_path: str) -> list[pd.DataFrame]:
                 }
                 extracted = page.extract_tables(table_settings_stream)
 
-            # Some PDFs only work with pdfplumber's default heuristics.
             if not extracted:
                 extracted = page.extract_tables()
 
             for tbl in extracted:
                 if not tbl or len(tbl) < 2:
                     continue
-                # Use first row as header if it looks like a header
-                header = tbl[0]
-                rows = tbl[1:]
-                # Pad rows to match header length
-                n_cols = len(header)
-                padded = [row + [""] * (n_cols - len(row)) if len(row) < n_cols
-                          else row[:n_cols] for row in rows]
-                df = pd.DataFrame(padded, columns=header)
-                df = df.replace("", pd.NA).dropna(how="all").fillna("")
-                if not df.empty:
-                    tables.append(df)
 
-    return tables
+                # Detect header: use first page's first row as the global header
+                first_row = tbl[0]
+                if detected_header is None:
+                    detected_header = first_row
+                    data_rows = tbl[1:]
+                else:
+                    # Skip repeated header rows on subsequent pages
+                    if tbl[0] == detected_header or all(
+                        str(c).strip().lower() == str(h).strip().lower()
+                        for c, h in zip(tbl[0], detected_header)
+                    ):
+                        data_rows = tbl[1:]
+                    else:
+                        data_rows = tbl  # no header on this page chunk
+
+                n_cols = len(detected_header)
+                for row in data_rows:
+                    if len(row) < n_cols:
+                        row = row + [""] * (n_cols - len(row))
+                    all_rows.append(row[:n_cols])
+
+    if not all_rows or detected_header is None:
+        return []
+
+    df = pd.DataFrame(all_rows, columns=detected_header)
+    df = df.replace("", pd.NA).dropna(how="all").fillna("")
+    if df.empty:
+        return []
+    return [df]  # single DataFrame — one sheet
 
 
 def extract_text_rows_pdfplumber(pdf_path: str) -> list[pd.DataFrame]:
-    """Fallback for text PDFs with no detectable table grid."""
-    tables = []
+    """Fallback for text PDFs with no detectable table grid.
+    All pages merged into a SINGLE DataFrame."""
+    all_rows = []
     with pdfplumber.open(pdf_path) as pdf:
         for page_num, page in enumerate(pdf.pages, start=1):
             text = page.extract_text(x_tolerance=2, y_tolerance=4) or ""
             rows = [[line.strip()] for line in text.splitlines() if line.strip()]
             if rows:
                 logger.info(f"  pdfplumber text fallback found {len(rows)} row(s) on page {page_num}")
-                tables.append(pd.DataFrame(rows, columns=[""]))
-    return tables
+                all_rows.extend(rows)
+    if not all_rows:
+        return []
+    return [pd.DataFrame(all_rows, columns=[""])]
 
 
 def ocr_image_to_rows(image) -> list[list[str]]:
@@ -329,7 +349,6 @@ def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 def write_excel(tables: list[pd.DataFrame], output_path: str) -> None:
     """Write ALL extracted DataFrames into a SINGLE sheet, stacked vertically."""
     wb = openpyxl.Workbook()
-    # Use the default sheet — rename it
     ws = wb.active
     ws.title = "Data"
 
@@ -343,11 +362,9 @@ def write_excel(tables: list[pd.DataFrame], output_path: str) -> None:
     for table_index, table in enumerate(tables):
         table = table.copy().fillna("")
 
-        # Blank separator row between tables
         if table_index > 0:
-            current_row += 1
+            current_row += 1  # blank separator row between tables
 
-        # Only write header if column names are meaningful
         col_names = [str(c).strip() for c in table.columns]
         has_real_header = any(
             c and c not in ("", "0", "1", "2", "3", "4", "5", "None")
@@ -359,14 +376,12 @@ def write_excel(tables: list[pd.DataFrame], output_path: str) -> None:
                 ws.cell(row=current_row, column=col_num, value=col_name)
             current_row += 1
 
-        # Write data rows — increment current_row for EACH row
         for row_tuple in table.itertuples(index=False):
             for col_num, value in enumerate(row_tuple, start=1):
                 cell_val = str(value) if value not in ("", None) else ""
                 ws.cell(row=current_row, column=col_num, value=cell_val)
-            current_row += 1
+            current_row += 1  # increment after EVERY row
 
-    # Auto-fit column widths
     for col_cells in ws.columns:
         max_len = 0
         col_letter = get_column_letter(col_cells[0].column)
