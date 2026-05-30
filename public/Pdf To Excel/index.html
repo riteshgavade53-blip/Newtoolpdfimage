@@ -742,7 +742,7 @@
       );
 
       try {
-        const response = await fetch('/api/convert-pdf', {
+        const response = await fetch('/convert', {
           method: 'POST',
           body: formData,
         });
@@ -768,6 +768,7 @@
 
         downloadLink.href = url;
         downloadLink.download = filename;
+        downloadLink.click();  // auto-download
 
         await sleep(500);
         progressSec.style.display = 'none';
