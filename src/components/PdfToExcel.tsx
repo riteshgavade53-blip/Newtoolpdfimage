@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { pdfjsLib, XLSX } from '../utils/pdfUtils';
+import { pdfjsLib, Tesseract, XLSX } from '../utils/pdfUtils';
 import { Table, FileText, ArrowDownToLine } from 'lucide-react';
 
 export default function PdfToExcel() {
@@ -9,8 +9,32 @@ export default function PdfToExcel() {
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  async function extractPageWithOcr(page: any) {
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    if (!context) return [];
+
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+
+    await page.render({ canvasContext: context, viewport }).promise;
+
+    const result = await Tesseract.recognize(canvas, 'eng');
+    const lines = result.data.text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    return lines.map((line) => {
+      const cells = line.split(/\t| {2,}/).map((cell) => cell.trim()).filter(Boolean);
+      return cells.length ? cells : [line];
+    });
+  }
+
   const handleFile = async (newFile: File | null) => {
-    if (!newFile || !newFile.name.endsWith('.pdf')) return;
+    if (!newFile || !newFile.name.toLowerCase().endsWith('.pdf')) return;
     setFile(newFile);
     setTables([]);
     setIsProcessing(true);
@@ -36,7 +60,15 @@ export default function PdfToExcel() {
             text: it.str.trim()
           }));
           
-        if (!items.length) { newTables.push([]); continue; }
+        if (!items.length) {
+          try {
+            newTables.push(await extractPageWithOcr(page));
+          } catch (ocrErr) {
+            console.error(ocrErr);
+            newTables.push([]);
+          }
+          continue;
+        }
         
         const avgCharWidth = (() => {
           const samples = items.filter(i => i.text.length > 0 && i.w > 0).slice(0, 200);
@@ -138,16 +170,49 @@ export default function PdfToExcel() {
     return best;
   }
 
+  function mergeTablesIntoOneSheet(extractedTables: string[][][]) {
+    const mergedRows: string[][] = [];
+
+    extractedTables.forEach((table) => {
+      if (!table.length) return;
+
+      const tableRows: string[][] = [];
+      table.forEach((row) => {
+        if (row.some((cell) => cell.trim())) {
+          tableRows.push(row);
+        }
+      });
+
+      if (!tableRows.length) return;
+      if (mergedRows.length) {
+        const widestRow = Math.max(...mergedRows.map((row) => row.length), ...tableRows.map((row) => row.length), 1);
+        mergedRows.push(new Array(widestRow).fill(''));
+      }
+
+      mergedRows.push(...tableRows);
+    });
+
+    return mergedRows;
+  }
+
   const convertToExcel = () => {
-    if (!tables.some(t => t.length > 0)) return;
+    const mergedRows = mergeTablesIntoOneSheet(tables);
+    if (!mergedRows.length) return;
     
     const wb = XLSX.utils.book_new();
-    
-    tables.forEach((pg, i) => {
-      if (!pg.length) return;
-      const ws = XLSX.utils.aoa_to_sheet(pg);
-      XLSX.utils.book_append_sheet(wb, ws, 'Page ' + (i + 1));
+    const ws = XLSX.utils.aoa_to_sheet(mergedRows);
+
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+    ws['!cols'] = Array.from({ length: range.e.c + 1 }, (_, colIndex) => {
+      const maxWidth = mergedRows.reduce((max, row) => {
+        const value = row[colIndex] || '';
+        return Math.max(max, value.length);
+      }, 8);
+
+      return { wch: Math.min(Math.max(maxWidth + 2, 10), 60) };
     });
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Data');
     
     XLSX.writeFile(wb, 'pdf-to-excel.xlsx');
   };
