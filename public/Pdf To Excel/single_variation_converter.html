@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Single Variation Converter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #ff6b35;
+    --accent2: #ffd700;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --success: #00e5a0;
+    --error: #ff4d6d;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* TAB BAR */
+  .tab-bar { display: flex; background: #2d3748; padding: 0 16px; align-items: center; gap: 4px; }
+  .tab-btn { padding: 12px 24px; color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; border: none; background: none; border-bottom: 3px solid #4299e1; }
+  .nav-btn { padding: 12px 24px; color: #a0aec0; font-size: 14px; font-weight: bold; border: none; background: none; border-bottom: 3px solid transparent; cursor: pointer; text-decoration: none; display: inline-block; }
+  .nav-btn:hover { color: #fff; }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(255,107,53,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 60% at 80% 90%, rgba(255,215,0,0.05) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px;
+  }
+
+  /* Header */
+  .header {
+    margin-bottom: 56px;
+  }
+
+  .header-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease forwards;
+  }
+
+  .header h1 {
+    font-size: clamp(32px, 5vw, 56px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.1s forwards;
+  }
+
+  .header h1 span {
+    color: var(--accent);
+    position: relative;
+  }
+
+  .header h1 span::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    animation: lineExpand 0.6s ease 0.7s forwards;
+  }
+
+  .header p {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 480px;
+    line-height: 1.6;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.2s forwards;
+  }
+
+  /* Upload Zone */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.3s forwards;
+  }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(255,107,53,0.06) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 20px 60px rgba(255,107,53,0.15);
+  }
+
+  .upload-zone:hover::before, .upload-zone.drag-over::before {
+    opacity: 1;
+  }
+
+  .upload-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 20px;
+    background: var(--surface2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    transition: all 0.3s;
+    font-size: 28px;
+  }
+
+  .upload-zone:hover .upload-icon {
+    background: rgba(255,107,53,0.15);
+    border-color: var(--accent);
+    transform: scale(1.1);
+  }
+
+  .upload-zone h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .upload-zone p {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .upload-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  /* File Info */
+  .file-info {
+    display: none;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-top: 16px;
+    opacity: 0;
+    animation: fadeUp 0.3s ease forwards;
+  }
+
+  .file-info.show { display: flex; }
+
+  .file-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(0,229,160,0.1);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .file-details { flex: 1; min-width: 0; }
+  .file-name {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-size {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Convert Button */
+  .btn-convert {
+    display: none;
+    margin-top: 24px;
+    width: 100%;
+    padding: 18px;
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeUp 0.3s ease 0.1s forwards;
+  }
+
+  .btn-convert.show { display: block; }
+
+  .btn-convert::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.4s;
+  }
+
+  .btn-convert:hover { background: #ff8555; transform: translateY(-2px); box-shadow: 0 12px 32px rgba(255,107,53,0.4); }
+  .btn-convert:hover::before { left: 100%; }
+  .btn-convert:active { transform: translateY(0); }
+
+  /* Stats Bar */
+  .stats-bar {
+    display: none;
+    gap: 1px;
+    background: var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 24px;
+    border: 1px solid var(--border);
+    opacity: 0;
+  }
+
+  .stats-bar.show { display: flex; animation: fadeUp 0.4s ease forwards; }
+
+  .stat {
+    flex: 1;
+    padding: 16px;
+    background: var(--surface);
+    text-align: center;
+  }
+
+  .stat-val {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* Preview Table */
+  .preview-section {
+    display: none;
+    margin-top: 32px;
+    opacity: 0;
+  }
+
+  .preview-section.show { display: block; animation: fadeUp 0.4s ease 0.1s forwards; }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    background: var(--surface2);
+    padding: 12px 14px;
+    text-align: left;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover { background: rgba(255,107,53,0.04); }
+  tbody tr:last-child { border-bottom: none; }
+
+  tbody td {
+    padding: 12px 14px;
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .badge-converted {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0,229,160,0.12);
+    color: var(--success);
+    border: 1px solid rgba(0,229,160,0.25);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+
+  .badge-unchanged {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(107,107,138,0.12);
+    color: var(--muted);
+    border: 1px solid rgba(107,107,138,0.2);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+
+  /* Download Button */
+  .btn-download {
+    display: none;
+    margin-top: 16px;
+    width: 100%;
+    padding: 16px;
+    background: transparent;
+    color: var(--success);
+    border: 1.5px solid var(--success);
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0;
+  }
+
+  .btn-download.show { display: block; animation: fadeUp 0.3s ease 0.2s forwards; }
+  .btn-download:hover { background: rgba(0,229,160,0.1); box-shadow: 0 8px 24px rgba(0,229,160,0.2); transform: translateY(-2px); }
+
+  /* Alert */
+  .alert {
+    display: none;
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-top: 16px;
+    font-weight: 600;
+  }
+
+  .alert.show { display: block; animation: fadeUp 0.3s ease forwards; }
+  .alert.error { background: rgba(255,77,109,0.1); color: var(--error); border: 1px solid rgba(255,77,109,0.25); }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes lineExpand {
+    to { transform: scaleX(1); }
+  }
+
+  /* Reset button */
+  .btn-reset {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+    transition: color 0.2s;
+    margin-top: 12px;
+  }
+
+  .btn-reset:hover { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="tab-bar">
+  <a class="nav-btn" href="New_Orange_item_Convert.html">📋 Menu Converter</a>
+  <a class="nav-btn" href="Menu_transformer_file2.html">🥟 Veg-Nonveg Transformer</a>
+  <button class="tab-btn">⚡ Single Variation Converter</button>
+</div>
+<div class="container">
+  <div class="header">
+    <div class="header-tag">// Excel Tool</div>
+    <h1>Single Variation<br><span>Converter</span></h1>
+    <p>Upload karo apni Excel file — jo items mein sirf ek hi variation ho, woh automatically single row mein convert ho jayenge.</p>
+  </div>
+
+  <!-- Upload Zone -->
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept=".xlsx,.xls" />
+    <div class="upload-icon">📊</div>
+    <h3>File yahan drop karo</h3>
+    <p>ya click karo upload karne ke liye &nbsp;·&nbsp; .xlsx / .xls supported</p>
+  </div>
+
+  <!-- File Info -->
+  <div class="file-info" id="fileInfo">
+    <div class="file-icon">✅</div>
+    <div class="file-details">
+      <div class="file-name" id="fileName">—</div>
+      <div class="file-size" id="fileSize">—</div>
+    </div>
+    <button class="btn-reset" id="resetBtn">✕ Remove</button>
+  </div>
+
+  <!-- Error Alert -->
+  <div class="alert error" id="alertBox"></div>
+
+  <!-- Convert Button -->
+  <button class="btn-convert" id="convertBtn">⚡ Convert Single Variations</button>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat">
+      <div class="stat-val" id="statTotal">0</div>
+      <div class="stat-label">Total Rows</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="statConverted">0</div>
+      <div class="stat-label">Converted</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="statOutput">0</div>
+      <div class="stat-label">Output Rows</div>
+    </div>
+  </div>
+
+  <!-- Preview Table -->
+  <div class="preview-section" id="previewSection">
+    <div class="section-label">Preview — Output Data</div>
+    <div class="table-wrapper">
+      <table id="previewTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Download Button -->
+  <button class="btn-download" id="downloadBtn">⬇ Download Converted File</button>
+</div>
+
+<script>
+  let workbook = null;
+  let outputData = null;
+  let convertedItems = new Set();
+
+  const uploadZone = document.getElementById('uploadZone');
+  const fileInput = document.getElementById('fileInput');
+  const fileInfo = document.getElementById('fileInfo');
+  const fileName = document.getElementById('fileName');
+  const fileSize = document.getElementById('fileSize');
+  const convertBtn = document.getElementById('convertBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const statsBar = document.getElementById('statsBar');
+  const previewSection = document.getElementById('previewSection');
+  const alertBox = document.getElementById('alertBox');
+  const resetBtn = document.getElementById('resetBtn');
+
+  // Drag & Drop
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file, true);
+  });
+
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) handleFile(e.target.files[0], true);
+  });
+
+  resetBtn.addEventListener('click', () => {
+    workbook = null; outputData = null;
+    fileInput.value = '';
+    fileInfo.classList.remove('show');
+    convertBtn.classList.remove('show');
+    downloadBtn.classList.remove('show');
+    statsBar.classList.remove('show');
+    previewSection.classList.remove('show');
+    alertBox.classList.remove('show');
+    uploadZone.style.display = '';
+  });
+
+  function handleFile(file, autoProcess = false) {
+    const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        'application/vnd.ms-excel', ''];
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+      showAlert('Sirf .xlsx ya .xls files supported hain!');
+      return;
+    }
+    hideAlert();
+    uploadZone.style.display = 'none';
+
+    fileName.textContent = file.name;
+    fileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+    fileInfo.classList.add('show');
+    convertBtn.classList.add('show');
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        if (autoProcess) convertBtn.click();
+      } catch(err) {
+        showAlert('File read karne mein error aaya. Valid Excel file upload karo.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  convertBtn.addEventListener('click', () => {
+    if (!workbook) { showAlert('Pehle file upload karo.'); return; }
+
+    try {
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      if (!data.length) { showAlert('Sheet mein koi data nahi mila.'); return; }
+
+      const headers = Object.keys(data[0]);
+      const nameCol = headers.find(h => h.toLowerCase() === 'name') || headers[0];
+      const varCol = headers.find(h => h.toLowerCase().includes('variation'));
+      const priceCol = headers.find(h => h.toLowerCase().includes('price'));
+
+      if (!varCol) { showAlert('"Variation_Name" column nahi mila file mein.'); return; }
+
+      // Count variations per item
+      const varCount = {};
+      data.forEach(row => {
+        const n = row[nameCol];
+        const v = String(row[varCol]).trim();
+        if (v !== '' && v !== 'undefined') {
+          varCount[n] = (varCount[n] || 0) + 1;
+        }
+      });
+
+      convertedItems = new Set(Object.entries(varCount).filter(([k,v]) => v === 1).map(([k]) => k));
+
+      // Process rows
+      const result = [];
+      const seen = new Set();
+      let i = 0;
+
+      while (i < data.length) {
+        const row = data[i];
+        const name = row[nameCol];
+        const variation = String(row[varCol]).trim();
+
+        if (convertedItems.has(name) && !seen.has(name)) {
+          seen.add(name);
+          const itemRows = data.filter(r => r[nameCol] === name);
+          const blankRow = itemRows.find(r => String(r[varCol]).trim() === '' || String(r[varCol]).trim() === 'undefined');
+          const varRow = itemRows.find(r => String(r[varCol]).trim() !== '' && String(r[varCol]).trim() !== 'undefined');
+          const merged = { ...(blankRow || itemRows[0]) };
+          if (varRow && priceCol) merged[priceCol] = varRow[priceCol];
+          merged[varCol] = '';
+          result.push({ ...merged, _status: 'converted' });
+          i += itemRows.length;
+          continue;
+        } else if (convertedItems.has(name) && seen.has(name)) {
+          i++; continue;
+        } else {
+          result.push({ ...row, _status: 'unchanged' });
+          i++;
+        }
+      }
+
+      outputData = result;
+
+      // Update stats
+      document.getElementById('statTotal').textContent = data.length;
+      document.getElementById('statConverted').textContent = convertedItems.size;
+      document.getElementById('statOutput').textContent = result.length;
+      statsBar.classList.add('show');
+
+      // Render preview
+      const displayHeaders = headers;
+      const thead = document.getElementById('tableHead');
+      const tbody = document.getElementById('tableBody');
+      thead.innerHTML = '<tr>' + displayHeaders.map(h => `<th>${h}</th>`).join('') + '<th>Status</th></tr>';
+      tbody.innerHTML = result.slice(0, 30).map(row => {
+        const cells = displayHeaders.map(h => `<td title="${row[h]}">${row[h]}</td>`).join('');
+        const badge = row._status === 'converted'
+          ? '<span class="badge-converted">✦ Converted</span>'
+          : '<span class="badge-unchanged">Unchanged</span>';
+        return `<tr>${cells}<td>${badge}</td></tr>`;
+      }).join('');
+
+      previewSection.classList.add('show');
+      downloadBtn.classList.add('show');
+
+      if (convertedItems.size === 0) {
+        showAlert('Koi single-variation item nahi mila. Sab items already multi-variation ya single hain.');
+      } else {
+        // Auto download
+        const cleanData = outputData.map(({ _status, ...rest }) => rest);
+        const ws = XLSX.utils.json_to_sheet(cleanData);
+        const wb2 = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb2, ws, 'Sheet1');
+        XLSX.writeFile(wb2, 'converted_output.xlsx');
+      }
+
+    } catch(err) {
+      showAlert('Processing mein error: ' + err.message);
+    }
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    if (!outputData) return;
+    const cleanData = outputData.map(({ _status, ...rest }) => rest);
+    const ws = XLSX.utils.json_to_sheet(cleanData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    XLSX.writeFile(wb, 'converted_output.xlsx');
+  });
+
+  function showAlert(msg) {
+    alertBox.textContent = '⚠ ' + msg;
+    alertBox.classList.add('show');
+  }
+  function hideAlert() {
+    alertBox.classList.remove('show');
+  }
+</script>
+</body>
+</html>
