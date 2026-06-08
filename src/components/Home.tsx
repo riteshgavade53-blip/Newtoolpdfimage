@@ -322,7 +322,7 @@ export default function Home({ onNavigate }: { onNavigate: (id: string) => void 
         </h1>
 
         <a
-          href="/New Orange item Convert.html"
+          href="/New%20Orange%20item%20Convert.html"
           target="_blank"
           rel="noopener noreferrer"
           style={{
