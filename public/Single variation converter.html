@@ -473,7 +473,6 @@
     <p>Upload karo apni Excel file — jo items mein sirf ek hi variation ho, woh automatically single row mein convert ho jayenge.</p>
   </div>
 
-  <!-- Upload Zone -->
   <div class="upload-zone" id="uploadZone">
     <input type="file" id="fileInput" accept=".xlsx,.xls" />
     <div class="upload-icon">📊</div>
@@ -481,7 +480,6 @@
     <p>ya click karo upload karne ke liye &nbsp;·&nbsp; .xlsx / .xls supported</p>
   </div>
 
-  <!-- File Info -->
   <div class="file-info" id="fileInfo">
     <div class="file-icon">✅</div>
     <div class="file-details">
@@ -491,13 +489,9 @@
     <button class="btn-reset" id="resetBtn">✕ Remove</button>
   </div>
 
-  <!-- Error Alert -->
   <div class="alert error" id="alertBox"></div>
-
-  <!-- Convert Button -->
   <button class="btn-convert" id="convertBtn">⚡ Convert Single Variations</button>
 
-  <!-- Stats -->
   <div class="stats-bar" id="statsBar">
     <div class="stat">
       <div class="stat-val" id="statTotal">0</div>
@@ -513,7 +507,6 @@
     </div>
   </div>
 
-  <!-- Preview Table -->
   <div class="preview-section" id="previewSection">
     <div class="section-label">Preview — Output Data</div>
     <div class="table-wrapper">
@@ -524,7 +517,6 @@
     </div>
   </div>
 
-  <!-- Download Button -->
   <button class="btn-download" id="downloadBtn">⬇ Download Converted File</button>
 </div>
 
@@ -545,7 +537,6 @@
   const alertBox = document.getElementById('alertBox');
   const resetBtn = document.getElementById('resetBtn');
 
-  // Drag & Drop
   uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
   uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
   uploadZone.addEventListener('drop', e => {
@@ -572,15 +563,12 @@
   });
 
   function handleFile(file, autoProcess = false) {
-    const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        'application/vnd.ms-excel', ''];
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
       showAlert('Sirf .xlsx ya .xls files supported hain!');
       return;
     }
     hideAlert();
     uploadZone.style.display = 'none';
-
     fileName.textContent = file.name;
     fileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
     fileInfo.classList.add('show');
@@ -612,44 +600,54 @@
       const nameCol = headers.find(h => h.toLowerCase() === 'name') || headers[0];
       const varCol = headers.find(h => h.toLowerCase().includes('variation'));
       const priceCol = headers.find(h => h.toLowerCase().includes('price'));
+      const displayCol = headers.find(h => h.toLowerCase().includes('displayname') || h.toLowerCase().includes('display_name'));
 
       if (!varCol) { showAlert('"Variation_Name" column nahi mila file mein.'); return; }
 
-      // Count variations per item
-      const varCount = {};
-      data.forEach(row => {
-        const n = row[nameCol];
-        const v = String(row[varCol]).trim();
-        if (v !== '' && v !== 'undefined') {
-          varCount[n] = (varCount[n] || 0) + 1;
-        }
-      });
+      const isBlankVar = v => {
+        const s = String(v).trim();
+        return s === '' || s === 'undefined' || s === 'null';
+      };
 
-      convertedItems = new Set(Object.entries(varCount).filter(([k,v]) => v === 1).map(([k]) => k));
-
-      // Process rows
       const result = [];
-      const seen = new Set();
       let i = 0;
+      let convertedCount = 0;
 
       while (i < data.length) {
         const row = data[i];
-        const name = row[nameCol];
-        const variation = String(row[varCol]).trim();
+        const variation = row[varCol];
 
-        if (convertedItems.has(name) && !seen.has(name)) {
-          seen.add(name);
-          const itemRows = data.filter(r => r[nameCol] === name);
-          const blankRow = itemRows.find(r => String(r[varCol]).trim() === '' || String(r[varCol]).trim() === 'undefined');
-          const varRow = itemRows.find(r => String(r[varCol]).trim() !== '' && String(r[varCol]).trim() !== 'undefined');
-          const merged = { ...(blankRow || itemRows[0]) };
-          if (varRow && priceCol) merged[priceCol] = varRow[priceCol];
-          merged[varCol] = '';
-          result.push({ ...merged, _status: 'converted' });
-          i += itemRows.length;
-          continue;
-        } else if (convertedItems.has(name) && seen.has(name)) {
-          i++; continue;
+        if (isBlankVar(variation)) {
+          const nextRow = data[i + 1];
+
+          if (nextRow &&
+              nextRow[nameCol] === row[nameCol] &&
+              !isBlankVar(nextRow[varCol])) {
+            // PAIR MILA: blank row + variation row → merge karo
+            const varName = String(nextRow[varCol]).trim();
+            const merged = { ...row };
+
+            if (priceCol) {
+              if (!merged[priceCol] || merged[priceCol] === 0 || merged[priceCol] === '') {
+                merged[priceCol] = nextRow[priceCol];
+              }
+            }
+
+            merged[nameCol] = String(row[nameCol]).trim() + ' (' + varName + ')';
+
+            if (displayCol && merged[displayCol]) {
+              merged[displayCol] = String(row[displayCol]).trim() + ' (' + varName + ')';
+            }
+
+            merged[varCol] = '';
+
+            result.push({ ...merged, _status: 'converted' });
+            convertedCount++;
+            i += 2;
+          } else {
+            result.push({ ...row, _status: 'unchanged' });
+            i++;
+          }
         } else {
           result.push({ ...row, _status: 'unchanged' });
           i++;
@@ -657,20 +655,18 @@
       }
 
       outputData = result;
+      convertedItems = new Set(result.filter(r => r._status === 'converted').map(r => r[nameCol]));
 
-      // Update stats
       document.getElementById('statTotal').textContent = data.length;
-      document.getElementById('statConverted').textContent = convertedItems.size;
+      document.getElementById('statConverted').textContent = convertedCount;
       document.getElementById('statOutput').textContent = result.length;
       statsBar.classList.add('show');
 
-      // Render preview
-      const displayHeaders = headers;
       const thead = document.getElementById('tableHead');
       const tbody = document.getElementById('tableBody');
-      thead.innerHTML = '<tr>' + displayHeaders.map(h => `<th>${h}</th>`).join('') + '<th>Status</th></tr>';
+      thead.innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '<th>Status</th></tr>';
       tbody.innerHTML = result.slice(0, 30).map(row => {
-        const cells = displayHeaders.map(h => `<td title="${row[h]}">${row[h]}</td>`).join('');
+        const cells = headers.map(h => `<td title="${row[h]}">${row[h]}</td>`).join('');
         const badge = row._status === 'converted'
           ? '<span class="badge-converted">✦ Converted</span>'
           : '<span class="badge-unchanged">Unchanged</span>';
@@ -679,11 +675,11 @@
 
       previewSection.classList.add('show');
       downloadBtn.classList.add('show');
+      hideAlert();
 
-      if (convertedItems.size === 0) {
-        showAlert('Koi single-variation item nahi mila. Sab items already multi-variation ya single hain.');
+      if (convertedCount === 0) {
+        showAlert('Koi convertible pair nahi mila. Check karo ki blank-variation row ke baad variation row ho.');
       } else {
-        // Auto download
         const cleanData = outputData.map(({ _status, ...rest }) => rest);
         const ws = XLSX.utils.json_to_sheet(cleanData);
         const wb2 = XLSX.utils.book_new();
@@ -705,13 +701,8 @@
     XLSX.writeFile(wb, 'converted_output.xlsx');
   });
 
-  function showAlert(msg) {
-    alertBox.textContent = '⚠ ' + msg;
-    alertBox.classList.add('show');
-  }
-  function hideAlert() {
-    alertBox.classList.remove('show');
-  }
+  function showAlert(msg) { alertBox.textContent = '⚠ ' + msg; alertBox.classList.add('show'); }
+  function hideAlert() { alertBox.classList.remove('show'); }
 </script>
 </body>
 </html>
