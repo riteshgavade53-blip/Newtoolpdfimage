@@ -58,9 +58,7 @@
   }
 
   /* Header */
-  .header {
-    margin-bottom: 56px;
-  }
+  .header { margin-bottom: 56px; }
 
   .header-tag {
     font-family: 'DM Mono', monospace;
@@ -140,9 +138,7 @@
     box-shadow: 0 20px 60px rgba(255,107,53,0.15);
   }
 
-  .upload-zone:hover::before, .upload-zone.drag-over::before {
-    opacity: 1;
-  }
+  .upload-zone:hover::before, .upload-zone.drag-over::before { opacity: 1; }
 
   .upload-icon {
     width: 64px;
@@ -164,16 +160,8 @@
     transform: scale(1.1);
   }
 
-  .upload-zone h3 {
-    font-size: 18px;
-    font-weight: 700;
-    margin-bottom: 8px;
-  }
-
-  .upload-zone p {
-    color: var(--muted);
-    font-size: 13px;
-  }
+  .upload-zone h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .upload-zone p { color: var(--muted); font-size: 13px; }
 
   .upload-zone input[type="file"] {
     position: absolute;
@@ -211,19 +199,8 @@
   }
 
   .file-details { flex: 1; min-width: 0; }
-  .file-name {
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .file-size {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 2px;
-  }
+  .file-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-size { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 2px; }
 
   /* Convert Button */
   .btn-convert {
@@ -275,36 +252,12 @@
 
   .stats-bar.show { display: flex; animation: fadeUp 0.4s ease forwards; }
 
-  .stat {
-    flex: 1;
-    padding: 16px;
-    background: var(--surface);
-    text-align: center;
-  }
-
-  .stat-val {
-    font-size: 28px;
-    font-weight: 800;
-    color: var(--accent);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .stat-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-top: 4px;
-  }
+  .stat { flex: 1; padding: 16px; background: var(--surface); text-align: center; }
+  .stat-val { font-size: 28px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
 
   /* Preview Table */
-  .preview-section {
-    display: none;
-    margin-top: 32px;
-    opacity: 0;
-  }
-
+  .preview-section { display: none; margin-top: 32px; opacity: 0; }
   .preview-section.show { display: block; animation: fadeUp 0.4s ease 0.1s forwards; }
 
   .section-label {
@@ -319,24 +272,11 @@
     gap: 8px;
   }
 
-  .section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-  .table-wrapper {
-    overflow-x: auto;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-  }
+  .table-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
   thead th {
     background: var(--surface2);
@@ -351,48 +291,24 @@
     border-bottom: 1px solid var(--border);
   }
 
-  tbody tr {
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    transition: background 0.15s;
-  }
-
+  tbody tr { border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
   tbody tr:hover { background: rgba(255,107,53,0.04); }
   tbody tr:last-child { border-bottom: none; }
 
-  tbody td {
-    padding: 12px 14px;
-    white-space: nowrap;
-    max-width: 200px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  tbody td { padding: 12px 14px; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 
   .badge-converted {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(0,229,160,0.12);
-    color: var(--success);
-    border: 1px solid rgba(0,229,160,0.25);
-    border-radius: 6px;
-    padding: 2px 8px;
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(0,229,160,0.12); color: var(--success);
+    border: 1px solid rgba(0,229,160,0.25); border-radius: 6px;
+    padding: 2px 8px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em;
   }
 
   .badge-unchanged {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(107,107,138,0.12);
-    color: var(--muted);
-    border: 1px solid rgba(107,107,138,0.2);
-    border-radius: 6px;
-    padding: 2px 8px;
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(107,107,138,0.12); color: var(--muted);
+    border: 1px solid rgba(107,107,138,0.2); border-radius: 6px;
+    padding: 2px 8px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em;
   }
 
   /* Download Button */
@@ -417,15 +333,7 @@
   .btn-download:hover { background: rgba(0,229,160,0.1); box-shadow: 0 8px 24px rgba(0,229,160,0.2); transform: translateY(-2px); }
 
   /* Alert */
-  .alert {
-    display: none;
-    padding: 14px 18px;
-    border-radius: 10px;
-    font-size: 13px;
-    margin-top: 16px;
-    font-weight: 600;
-  }
-
+  .alert { display: none; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-top: 16px; font-weight: 600; }
   .alert.show { display: block; animation: fadeUp 0.3s ease forwards; }
   .alert.error { background: rgba(255,77,109,0.1); color: var(--error); border: 1px solid rgba(255,77,109,0.25); }
 
@@ -435,37 +343,29 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  @keyframes lineExpand {
-    to { transform: scaleX(1); }
-  }
+  @keyframes lineExpand { to { transform: scaleX(1); } }
 
   /* Reset button */
   .btn-reset {
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    cursor: pointer;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 0;
-    transition: color 0.2s;
-    margin-top: 12px;
+    background: none; border: none; color: var(--muted);
+    font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 0; transition: color 0.2s; margin-top: 12px;
   }
 
   .btn-reset:hover { color: var(--text); }
 </style>
 </head>
 <body>
+
+<!-- TAB BAR (pehle wale file se) -->
 <div class="tab-bar">
   <a class="nav-btn" href="New%20Orange%20item%20Convert.html">📋 Menu Converter</a>
   <a class="nav-btn" href="Menu%20transformer%20file2.html">🥟 Veg-Nonveg Transformer</a>
   <button class="tab-btn">⚡ Single Variation Converter</button>
 </div>
+
 <div class="container">
   <div class="header">
     <div class="header-tag">// Excel Tool</div>
@@ -525,18 +425,19 @@
   let outputData = null;
   let convertedItems = new Set();
 
-  const uploadZone = document.getElementById('uploadZone');
-  const fileInput = document.getElementById('fileInput');
-  const fileInfo = document.getElementById('fileInfo');
-  const fileName = document.getElementById('fileName');
-  const fileSize = document.getElementById('fileSize');
-  const convertBtn = document.getElementById('convertBtn');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const statsBar = document.getElementById('statsBar');
-  const previewSection = document.getElementById('previewSection');
-  const alertBox = document.getElementById('alertBox');
-  const resetBtn = document.getElementById('resetBtn');
+  const uploadZone    = document.getElementById('uploadZone');
+  const fileInput     = document.getElementById('fileInput');
+  const fileInfo      = document.getElementById('fileInfo');
+  const fileName      = document.getElementById('fileName');
+  const fileSize      = document.getElementById('fileSize');
+  const convertBtn    = document.getElementById('convertBtn');
+  const downloadBtn   = document.getElementById('downloadBtn');
+  const statsBar      = document.getElementById('statsBar');
+  const previewSection= document.getElementById('previewSection');
+  const alertBox      = document.getElementById('alertBox');
+  const resetBtn      = document.getElementById('resetBtn');
 
+  // Drag & Drop
   uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
   uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
   uploadZone.addEventListener('drop', e => {
@@ -597,9 +498,9 @@
       if (!data.length) { showAlert('Sheet mein koi data nahi mila.'); return; }
 
       const headers = Object.keys(data[0]);
-      const nameCol = headers.find(h => h.toLowerCase() === 'name') || headers[0];
-      const varCol = headers.find(h => h.toLowerCase().includes('variation'));
-      const priceCol = headers.find(h => h.toLowerCase().includes('price'));
+      const nameCol    = headers.find(h => h.toLowerCase() === 'name') || headers[0];
+      const varCol     = headers.find(h => h.toLowerCase().includes('variation'));
+      const priceCol   = headers.find(h => h.toLowerCase().includes('price'));
       const displayCol = headers.find(h => h.toLowerCase().includes('displayname') || h.toLowerCase().includes('display_name'));
 
       if (!varCol) { showAlert('"Variation_Name" column nahi mila file mein.'); return; }
@@ -609,45 +510,72 @@
         return s === '' || s === 'undefined' || s === 'null';
       };
 
+      // ── DUSRE CODE KA LOGIC: varCount se single-variation items dhundho ──
+      const varCount = {};
+      data.forEach(row => {
+        const n = row[nameCol];
+        const v = String(row[varCol]).trim();
+        if (!isBlankVar(v)) {
+          varCount[n] = (varCount[n] || 0) + 1;
+        }
+      });
+
+      // Sirf woh items jinke exactly 1 variation ho
+      convertedItems = new Set(
+        Object.entries(varCount)
+          .filter(([, count]) => count === 1)
+          .map(([name]) => name)
+      );
+
+      // ── Process rows ──
       const result = [];
+      const seen   = new Set();
       let i = 0;
-      let convertedCount = 0;
 
       while (i < data.length) {
-        const row = data[i];
-        const variation = row[varCol];
+        const row  = data[i];
+        const name = row[nameCol];
 
-        if (isBlankVar(variation)) {
-          const nextRow = data[i + 1];
+        if (convertedItems.has(name) && !seen.has(name)) {
+          seen.add(name);
 
-          if (nextRow &&
-              nextRow[nameCol] === row[nameCol] &&
-              !isBlankVar(nextRow[varCol])) {
-            // PAIR MILA: blank row + variation row → merge karo
-            const varName = String(nextRow[varCol]).trim();
-            const merged = { ...row };
+          // Is item ki saari rows ikatta karo
+          const itemRows = data.filter(r => r[nameCol] === name);
+          const blankRow = itemRows.find(r => isBlankVar(r[varCol]));
+          const varRow   = itemRows.find(r => !isBlankVar(r[varCol]));
 
-            if (priceCol) {
-              if (!merged[priceCol] || merged[priceCol] === 0 || merged[priceCol] === '') {
-                merged[priceCol] = nextRow[priceCol];
-              }
+          // Base row: blank row agar ho, warna pehli row
+          const merged = { ...(blankRow || itemRows[0]) };
+
+          // Price: blank row mein nahi hai to variation row se lo
+          if (varRow && priceCol) {
+            if (!merged[priceCol] || merged[priceCol] === 0 || merged[priceCol] === '') {
+              merged[priceCol] = varRow[priceCol];
             }
-
-            merged[nameCol] = String(row[nameCol]).trim() + ' (' + varName + ')';
-
-            if (displayCol && merged[displayCol]) {
-              merged[displayCol] = String(row[displayCol]).trim() + ' (' + varName + ')';
-            }
-
-            merged[varCol] = '';
-
-            result.push({ ...merged, _status: 'converted' });
-            convertedCount++;
-            i += 2;
-          } else {
-            result.push({ ...row, _status: 'unchanged' });
-            i++;
           }
+
+          // Name mein variation append karo (pehle wale file ka feature)
+          if (varRow) {
+            const varName = String(varRow[varCol]).trim();
+            merged[nameCol] = String(merged[nameCol]).trim() + ' (' + varName + ')';
+
+            // DisplayName bhi update karo agar column ho
+            if (displayCol && merged[displayCol]) {
+              merged[displayCol] = String(merged[displayCol]).trim() + ' (' + varName + ')';
+            }
+          }
+
+          // Variation column blank karo
+          merged[varCol] = '';
+
+          result.push({ ...merged, _status: 'converted' });
+          i += itemRows.length; // saari rows skip
+          continue;
+
+        } else if (convertedItems.has(name) && seen.has(name)) {
+          // Pehle se process ho chuka, skip
+          i++;
+          continue;
         } else {
           result.push({ ...row, _status: 'unchanged' });
           i++;
@@ -655,19 +583,20 @@
       }
 
       outputData = result;
-      convertedItems = new Set(result.filter(r => r._status === 'converted').map(r => r[nameCol]));
 
-      document.getElementById('statTotal').textContent = data.length;
-      document.getElementById('statConverted').textContent = convertedCount;
-      document.getElementById('statOutput').textContent = result.length;
+      // Stats update
+      document.getElementById('statTotal').textContent     = data.length;
+      document.getElementById('statConverted').textContent = convertedItems.size;
+      document.getElementById('statOutput').textContent    = result.length;
       statsBar.classList.add('show');
 
+      // Preview render
       const thead = document.getElementById('tableHead');
       const tbody = document.getElementById('tableBody');
       thead.innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '<th>Status</th></tr>';
       tbody.innerHTML = result.slice(0, 30).map(row => {
         const cells = headers.map(h => `<td title="${row[h]}">${row[h]}</td>`).join('');
-        const badge = row._status === 'converted'
+        const badge  = row._status === 'converted'
           ? '<span class="badge-converted">✦ Converted</span>'
           : '<span class="badge-unchanged">Unchanged</span>';
         return `<tr>${cells}<td>${badge}</td></tr>`;
@@ -677,11 +606,12 @@
       downloadBtn.classList.add('show');
       hideAlert();
 
-      if (convertedCount === 0) {
-        showAlert('Koi convertible pair nahi mila. Check karo ki blank-variation row ke baad variation row ho.');
+      if (convertedItems.size === 0) {
+        showAlert('Koi single-variation item nahi mila. Sab items already multi-variation ya standalone hain.');
       } else {
+        // Auto-download
         const cleanData = outputData.map(({ _status, ...rest }) => rest);
-        const ws = XLSX.utils.json_to_sheet(cleanData);
+        const ws  = XLSX.utils.json_to_sheet(cleanData);
         const wb2 = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb2, ws, 'Sheet1');
         XLSX.writeFile(wb2, 'converted_output.xlsx');
@@ -695,14 +625,14 @@
   downloadBtn.addEventListener('click', () => {
     if (!outputData) return;
     const cleanData = outputData.map(({ _status, ...rest }) => rest);
-    const ws = XLSX.utils.json_to_sheet(cleanData);
-    const wb = XLSX.utils.book_new();
+    const ws  = XLSX.utils.json_to_sheet(cleanData);
+    const wb  = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
     XLSX.writeFile(wb, 'converted_output.xlsx');
   });
 
   function showAlert(msg) { alertBox.textContent = '⚠ ' + msg; alertBox.classList.add('show'); }
-  function hideAlert() { alertBox.classList.remove('show'); }
+  function hideAlert()    { alertBox.classList.remove('show'); }
 </script>
 </body>
 </html>
