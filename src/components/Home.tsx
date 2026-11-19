@@ -303,7 +303,8 @@ export default function Home({ onNavigate }: { onNavigate: (id: string) => void 
             color: '#f97316', textTransform: 'uppercase', marginBottom: 10,
           }}
         >
-          👉 Click Here
+          👉 Click Here, <a href="https://word-pdf-table-spark.lovable.app/">Word - pdf / pdf - excel</a>
+
         </p>
 
         <h1
